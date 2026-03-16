@@ -17,12 +17,23 @@ spec:
         app: postgres
     spec:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 999
         fsGroup: 999
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ['sh', '-c', 'chmod 0700 /var/run/postgresql && chown 999:999 /var/run/postgresql']
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+          volumeMounts:
+            - name: postgres-run
+              mountPath: /var/run/postgresql
       containers:
         - name: postgres
           image: postgres:15-alpine
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
           ports:
             - containerPort: 5432
               name: postgres
@@ -49,24 +60,23 @@ spec:
               cpu: "1"
               memory: 2Gi
           livenessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -U
-                - $(POSTGRES_USER)
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -U
-                - $(POSTGRES_USER)
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+            - name: postgres-run
+              mountPath: /var/run/postgresql
+      volumes:
+        - name: postgres-run
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
