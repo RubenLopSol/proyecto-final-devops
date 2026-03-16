@@ -8,7 +8,7 @@ set -euo pipefail
 CLUSTER_NAME="openpanel"
 K8S_VERSION="v1.28.0"
 CPUS=6
-MEMORY="12288"
+MEMORY="8192"
 DISK="60g"
 DRIVER="docker"
 
