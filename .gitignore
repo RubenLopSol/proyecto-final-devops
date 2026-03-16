@@ -1,0 +1,43 @@
+# Secrets - NEVER commit
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+.secrets/
+credentials-velero
+
+# Node
+node_modules/
+.pnpm-store/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kubernetes local
+kubeconfig
+*.kubeconfig
+
+# Backup files
+*.sql.gz
+*.bak
+*.backup
+
+# Terraform (not used but just in case)
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Docker
+*.tar
+
+# Logs
+*.log
