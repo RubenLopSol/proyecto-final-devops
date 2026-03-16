@@ -41,3 +41,5 @@ kubeconfig
 
 # Logs
 *.log
+
+credentials-velero

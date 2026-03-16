@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: observability
+  labels:
+    app: tempo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+        - name: tempo
+          image: grafana/tempo:latest
+          args:
+            - "-config.file=/etc/tempo/tempo.yaml"
+          ports:
+            - containerPort: 3200
+              name: http
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tempo
+            - name: data
+              mountPath: /var/tempo
+      volumes:
+        - name: config
+          configMap:
+            name: tempo-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: tempo-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-data
+  namespace: observability
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi

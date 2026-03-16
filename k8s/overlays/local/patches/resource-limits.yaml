@@ -1,0 +1,18 @@
+# Reduce resource limits for local Minikube environment
+# This patch is applied to all Deployments in openpanel namespace
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder
+spec:
+  template:
+    spec:
+      containers:
+        - name: placeholder
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

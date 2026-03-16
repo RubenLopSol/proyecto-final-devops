@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openpanel-api-green
+  namespace: openpanel
+  labels:
+    app: openpanel-api
+    version: green
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: openpanel-api
+      version: green
+  template:
+    metadata:
+      labels:
+        app: openpanel-api
+        version: green
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/health"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: api
+          image: ghcr.io/RubenLopSol/openpanel-api:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: openpanel-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: DATABASE_URL
+            - name: CLICKHOUSE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: CLICKHOUSE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: REDIS_URL
+            - name: API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: API_SECRET
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

@@ -1,0 +1,31 @@
+# Full backup - daily at 2 AM
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-full-backup
+  namespace: backup
+spec:
+  schedule: "0 2 * * *"
+  template:
+    includedNamespaces:
+      - openpanel
+      - observability
+    ttl: 720h0m0s
+    storageLocation: default
+---
+# Database backup - hourly
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: hourly-database-backup
+  namespace: backup
+spec:
+  schedule: "0 * * * *"
+  template:
+    includedNamespaces:
+      - openpanel
+    labelSelector:
+      matchLabels:
+        backup: database
+    ttl: 24h0m0s
+    storageLocation: default

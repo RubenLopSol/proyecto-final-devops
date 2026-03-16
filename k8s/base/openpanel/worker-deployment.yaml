@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openpanel-worker
+  namespace: openpanel
+  labels:
+    app: openpanel-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openpanel-worker
+  template:
+    metadata:
+      labels:
+        app: openpanel-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: worker
+          image: ghcr.io/RubenLopSol/openpanel-worker:latest
+          envFrom:
+            - configMapRef:
+                name: openpanel-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: DATABASE_URL
+            - name: CLICKHOUSE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: CLICKHOUSE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: REDIS_URL
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

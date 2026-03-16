@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: openpanel
+  namespace: argocd
+spec:
+  description: OpenPanel DevOps Project
+  sourceRepos:
+    - "https://github.com/RubenLopSol/proyecto_final.git"
+  destinations:
+    - namespace: openpanel
+      server: https://kubernetes.default.svc
+    - namespace: observability
+      server: https://kubernetes.default.svc
+    - namespace: backup
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: "*"
+    - group: apps
+      kind: "*"
+    - group: networking.k8s.io
+      kind: "*"
+    - group: batch
+      kind: "*"
+    - group: velero.io
+      kind: "*"
