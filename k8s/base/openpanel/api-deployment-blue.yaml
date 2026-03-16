@@ -28,7 +28,8 @@ spec:
         fsGroup: 1001
       containers:
         - name: api
-          image: ghcr.io/RubenLopSol/openpanel-api:latest
+          image: ghcr.io/rubenlopsol/openpanel-api:latest
+          command: ["node", "dist/index.js"]
           ports:
             - containerPort: 3000
               name: http
@@ -36,6 +37,12 @@ spec:
             - configMapRef:
                 name: openpanel-config
           env:
+            - name: HOME
+              value: /tmp
+            - name: COREPACK_HOME
+              value: /tmp/corepack
+            - name: XDG_CACHE_HOME
+              value: /tmp/.cache
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -65,19 +72,28 @@ spec:
               memory: 2Gi
           livenessProbe:
             httpGet:
-              path: /health
+              path: /healthz/live
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
-              path: /health
+              path: /healthcheck
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 10
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
