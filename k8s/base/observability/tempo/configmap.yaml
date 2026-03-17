@@ -29,15 +29,3 @@ data:
         wal:
           path: /var/tempo/wal
 
-    metrics_generator:
-      registry:
-        external_labels:
-          source: tempo
-      storage:
-        path: /var/tempo/generator/wal
-        remote_write:
-          - url: http://prometheus.observability.svc.cluster.local:9090/api/v1/write
-
-    compactor:
-      compaction:
-        block_retention: 168h
