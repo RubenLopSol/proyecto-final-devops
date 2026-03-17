@@ -21,7 +21,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: worker
-          image: ghcr.io/RubenLopSol/openpanel-worker:main-dfc2ddf
+          image: ghcr.io/RubenLopSol/openpanel-worker:main-81c3e43
           envFrom:
             - configMapRef:
                 name: openpanel-config
