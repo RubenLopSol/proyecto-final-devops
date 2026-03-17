@@ -26,7 +26,7 @@ data:
     {
       "title": "OpenPanel - Kubernetes Monitoring",
       "uid": "openpanel-k8s",
-      "version": 1,
+      "version": 2,
       "schemaVersion": 36,
       "refresh": "30s",
       "time": { "from": "now-1h", "to": "now" },
@@ -110,37 +110,77 @@ data:
           },
           "targets": [
             {
-              "expr": "count(container_memory_usage_bytes{namespace=\"openpanel\"})",
-              "legendFormat": "Containers",
+              "expr": "count(container_memory_usage_bytes{namespace=\"openpanel\", pod!=\"\"})",
+              "legendFormat": "Pods",
               "refId": "A"
             }
           ]
         },
         {
           "id": 5,
-          "title": "Network I/O - openpanel namespace",
-          "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "title": "CPU Total (cores)",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
-            "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } }
+            "defaults": { "unit": "short", "decimals": 3, "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 2 }
+              ]}
+            }
           },
           "targets": [
             {
-              "expr": "rate(container_network_receive_bytes_total{namespace=\"openpanel\"}[5m])",
-              "legendFormat": "RX {{pod}}",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"openpanel\"}[5m]))",
+              "legendFormat": "Total CPU",
               "refId": "A"
-            },
-            {
-              "expr": "rate(container_network_transmit_bytes_total{namespace=\"openpanel\"}[5m])",
-              "legendFormat": "TX {{pod}}",
-              "refId": "B"
             }
           ]
         },
         {
           "id": 6,
-          "title": "Container Restarts (openpanel)",
+          "title": "Prometheus Targets UP",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]}
+            }
+          },
+          "targets": [
+            {
+              "expr": "count(up == 1)",
+              "legendFormat": "Targets UP",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Memory Usage by Pod - History",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } }
+          },
+          "targets": [
+            {
+              "expr": "container_memory_usage_bytes{namespace=\"openpanel\", pod!=\"\"}",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "CPU Usage by Pod - History",
           "type": "timeseries",
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -149,7 +189,7 @@ data:
           },
           "targets": [
             {
-              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"openpanel\"}[5m])",
+              "expr": "rate(container_cpu_usage_seconds_total{namespace=\"openpanel\", pod!=\"\"}[5m])",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }
