@@ -28,7 +28,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: api
-          image: ghcr.io/RubenLopSol/openpanel-api:main-7406f5e
+          image: ghcr.io/RubenLopSol/openpanel-api:main-8e2f6a2
           command: ["node", "dist/index.js"]
           ports:
             - containerPort: 3000
