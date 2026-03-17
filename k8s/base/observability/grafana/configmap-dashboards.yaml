@@ -26,7 +26,7 @@ data:
     {
       "title": "OpenPanel - Kubernetes Monitoring",
       "uid": "openpanel-k8s",
-      "version": 2,
+      "version": 3,
       "schemaVersion": 36,
       "refresh": "30s",
       "time": { "from": "now-1h", "to": "now" },
@@ -194,6 +194,132 @@ data:
               "refId": "A"
             }
           ]
+        },
+        {
+          "id": 9,
+          "title": "Redis UP",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]}
+            },
+            "overrides": [{ "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "mappings", "value": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] }] }]
+          },
+          "targets": [{ "expr": "redis_up", "legendFormat": "Redis", "refId": "A" }]
+        },
+        {
+          "id": 10,
+          "title": "Redis Connected Clients",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }] }
+            }
+          },
+          "targets": [{ "expr": "redis_connected_clients", "legendFormat": "Clients", "refId": "A" }]
+        },
+        {
+          "id": 11,
+          "title": "Redis Memory Used",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "bytes", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 536870912 }, { "color": "red", "value": 858993459 }] }
+            }
+          },
+          "targets": [{ "expr": "redis_memory_used_bytes", "legendFormat": "Memory", "refId": "A" }]
+        },
+        {
+          "id": 12,
+          "title": "PostgreSQL UP",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+            },
+            "overrides": [{ "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "mappings", "value": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] }] }]
+          },
+          "targets": [{ "expr": "pg_up", "legendFormat": "PostgreSQL", "refId": "A" }]
+        },
+        {
+          "id": 13,
+          "title": "PostgreSQL DB Size",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 16, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "bytes", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1073741824 }] }
+            }
+          },
+          "targets": [{ "expr": "pg_database_size_bytes{datname=\"openpanel\"}", "legendFormat": "openpanel DB", "refId": "A" }]
+        },
+        {
+          "id": 14,
+          "title": "Node Disk Available",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "bytes", "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 5368709120 }, { "color": "green", "value": 10737418240 }] }
+            }
+          },
+          "targets": [{ "expr": "node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"}", "legendFormat": "Available", "refId": "A" }]
+        },
+        {
+          "id": 15,
+          "title": "Redis Commands/sec",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } } },
+          "targets": [{ "expr": "rate(redis_commands_processed_total[5m])", "legendFormat": "Commands/s", "refId": "A" }]
+        },
+        {
+          "id": 16,
+          "title": "Redis Memory Over Time",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } } },
+          "targets": [
+            { "expr": "redis_memory_used_bytes", "legendFormat": "Used", "refId": "A" },
+            { "expr": "redis_memory_max_bytes", "legendFormat": "Max", "refId": "B" }
+          ]
+        },
+        {
+          "id": 17,
+          "title": "PostgreSQL Rows Fetched/sec",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } } },
+          "targets": [{ "expr": "rate(pg_stat_database_tup_fetched{datname=\"openpanel\"}[5m])", "legendFormat": "Rows Fetched/s", "refId": "A" }]
+        },
+        {
+          "id": 18,
+          "title": "Node Disk Usage %",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "color": { "mode": "palette-classic" } } },
+          "targets": [{
+            "expr": "1 - (node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"})",
+            "legendFormat": "Disk Used %",
+            "refId": "A"
+          }]
         }
       ]
     }

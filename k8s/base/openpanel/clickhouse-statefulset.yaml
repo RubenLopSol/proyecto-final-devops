@@ -15,6 +15,9 @@ spec:
     metadata:
       labels:
         app: clickhouse
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9363"
     spec:
       containers:
         - name: clickhouse
@@ -24,6 +27,8 @@ spec:
               name: http
             - containerPort: 9000
               name: native
+            - containerPort: 9363
+              name: metrics
           env:
             - name: CLICKHOUSE_USER
               valueFrom:
@@ -59,6 +64,13 @@ spec:
           volumeMounts:
             - name: clickhouse-data
               mountPath: /var/lib/clickhouse
+            - name: prometheus-config
+              mountPath: /etc/clickhouse-server/config.d/prometheus.xml
+              subPath: prometheus.xml
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: clickhouse-prometheus-config
   volumeClaimTemplates:
     - metadata:
         name: clickhouse-data

@@ -26,6 +26,8 @@ resources:
   - tempo/configmap.yaml
   - tempo/deployment.yaml
   - tempo/service.yaml
+  # Node Exporter
+  - node-exporter/daemonset.yaml
   # Ingress
   - ingress.yaml
 
