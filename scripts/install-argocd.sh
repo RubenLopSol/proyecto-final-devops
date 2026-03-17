@@ -24,7 +24,12 @@ ARGOCD_PASSWORD=$(kubectl -n "${NAMESPACE}" get secret argocd-initial-admin-secr
 echo "Username: admin"
 echo "Password: ${ARGOCD_PASSWORD}"
 
-# Create Ingress for ArgoCD
+# Patch argocd-server to run in insecure (HTTP) mode
+kubectl patch deployment argocd-server -n "${NAMESPACE}" \
+  --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--insecure"}]'
+
+# Create Ingress for ArgoCD (HTTP, no TLS)
 cat <<EOF | kubectl apply -f -
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -32,8 +37,7 @@ metadata:
   name: argocd-ingress
   namespace: ${NAMESPACE}
   annotations:
-    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
 spec:
   ingressClassName: nginx
   rules:
@@ -46,13 +50,13 @@ spec:
               service:
                 name: argocd-server
                 port:
-                  number: 443
+                  number: 80
 EOF
 
 echo ""
 echo "=== ArgoCD installed ==="
 echo ""
-echo "Access: https://argocd.local"
+echo "Access: http://argocd.local"
 echo ""
 echo "Next steps:"
 echo "  1. Login: argocd login argocd.local --username admin --password ${ARGOCD_PASSWORD} --insecure"
