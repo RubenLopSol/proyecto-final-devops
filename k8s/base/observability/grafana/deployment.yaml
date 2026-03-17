@@ -46,12 +46,24 @@ spec:
           volumeMounts:
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+            - name: dashboard-openpanel
+              mountPath: /etc/grafana/provisioning/dashboards/openpanel.json
+              subPath: openpanel.json
             - name: data
               mountPath: /var/lib/grafana
       volumes:
         - name: datasources
           configMap:
             name: grafana-datasources
+        - name: dashboard-provisioning
+          configMap:
+            name: grafana-dashboard-provisioning
+        - name: dashboard-openpanel
+          configMap:
+            name: grafana-dashboard-openpanel
         - name: data
           persistentVolumeClaim:
             claimName: grafana-data

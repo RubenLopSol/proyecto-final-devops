@@ -13,6 +13,7 @@ resources:
   - grafana/deployment.yaml
   - grafana/service.yaml
   - grafana/configmap-datasources.yaml
+  - grafana/configmap-dashboards.yaml
   # Loki
   - loki/configmap.yaml
   - loki/statefulset.yaml
