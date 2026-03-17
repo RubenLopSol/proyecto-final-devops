@@ -18,9 +18,7 @@ spec:
         app: openpanel-api
         version: green
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "3000"
-        prometheus.io/path: "/health"
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         runAsNonRoot: true

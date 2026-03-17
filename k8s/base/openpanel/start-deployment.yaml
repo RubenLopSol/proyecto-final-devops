@@ -15,8 +15,7 @@ spec:
       labels:
         app: openpanel-start
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "3000"
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -24,7 +23,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: start
-          image: ghcr.io/RubenLopSol/openpanel-start:main-8e2f6a2
+          image: ghcr.io/rubenlopsol/openpanel-start:main-8e2f6a2
           ports:
             - containerPort: 3000
               name: http

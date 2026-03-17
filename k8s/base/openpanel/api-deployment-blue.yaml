@@ -18,9 +18,7 @@ spec:
         app: openpanel-api
         version: blue
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "3000"
-        prometheus.io/path: "/health"
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -28,7 +26,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: api
-          image: ghcr.io/RubenLopSol/openpanel-api:main-8e2f6a2
+          image: ghcr.io/rubenlopsol/openpanel-api:main-8e2f6a2
           command: ["node", "dist/index.js"]
           ports:
             - containerPort: 3000
