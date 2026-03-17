@@ -29,6 +29,7 @@ spec:
       containers:
         - name: api
           image: ghcr.io/rubenlopsol/openpanel-api:latest
+          command: ["node", "dist/index.js"]
           ports:
             - containerPort: 3000
               name: http
@@ -36,6 +37,12 @@ spec:
             - configMapRef:
                 name: openpanel-config
           env:
+            - name: HOME
+              value: /tmp
+            - name: COREPACK_HOME
+              value: /tmp/corepack
+            - name: XDG_CACHE_HOME
+              value: /tmp/.cache
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -84,3 +91,9 @@ spec:
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -33,7 +33,7 @@ kubectl scale deployment "${TARGET_DEPLOYMENT}" -n "${NAMESPACE}" --replicas=2
 
 # Step 3: Wait for target to be ready
 echo "=== Step 3: Waiting for ${TARGET_DEPLOYMENT} to be ready ==="
-kubectl rollout status deployment "${TARGET_DEPLOYMENT}" -n "${NAMESPACE}" --timeout=120s
+kubectl rollout status deployment "${TARGET_DEPLOYMENT}" -n "${NAMESPACE}" --timeout=300s
 
 # Step 4: Health check on target pods
 echo "=== Step 4: Running health checks ==="
