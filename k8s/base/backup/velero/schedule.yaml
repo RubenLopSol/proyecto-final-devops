@@ -3,7 +3,7 @@ apiVersion: velero.io/v1
 kind: Schedule
 metadata:
   name: daily-full-backup
-  namespace: backup
+  namespace: velero
 spec:
   schedule: "0 2 * * *"
   template:
@@ -18,7 +18,7 @@ apiVersion: velero.io/v1
 kind: Schedule
 metadata:
   name: hourly-database-backup
-  namespace: backup
+  namespace: velero
 spec:
   schedule: "0 * * * *"
   template:
