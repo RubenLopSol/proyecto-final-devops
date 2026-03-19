@@ -111,9 +111,9 @@ terraform plan
 terraform apply
 ```
 
-![Terraform — Apply completado con LocalStack (7 recursos creados)](../screenshots/terraform-apply-localstack.png)
+![Terraform — Apply con LocalStack mostrando infraestructura estable y outputs](../screenshots/terraform-apply-localstack.png)
 
-Recursos creados (7 en total):
+Recursos gestionados (9 en total):
 
 | Recurso | Nombre |
 |---|---|
@@ -124,6 +124,8 @@ Recursos creados (7 en total):
 | `aws_s3_bucket_lifecycle_configuration` | Expiración a 30 días |
 | `aws_iam_user` | `velero-backup-user` |
 | `aws_iam_access_key` | Credenciales para Velero |
+| `aws_iam_policy` | `velero-s3-policy` |
+| `aws_iam_user_policy_attachment` | Vincula policy al usuario |
 
 ### Verificar el resultado
 
@@ -141,7 +143,7 @@ aws --endpoint-url=http://localhost:4566 s3api get-bucket-versioning \
 aws --endpoint-url=http://localhost:4566 iam list-users
 ```
 
-![Terraform — Outputs con ARN del bucket y credenciales de Velero](../screenshots/terraform-outputs.png)
+![Terraform — Outputs: bucket_arn, bucket_name, velero_access_key_id, velero_iam_user, velero_secret_access_key](../screenshots/terraform-outputs.png)
 
 ### Destruir los recursos
 

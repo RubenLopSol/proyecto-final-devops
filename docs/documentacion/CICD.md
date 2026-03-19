@@ -12,7 +12,7 @@ El pipeline CI/CD está implementado con **GitHub Actions** y sigue este flujo:
 Developer push ──► GitHub Actions CI ──► GHCR (imágenes) ──► CD actualiza manifiestos ──► ArgoCD despliega
 ```
 
-![Flujo CI/CD GitOps](../diagrams/img/flujo_CICD_gitops.png)
+![Flujo CI/CD GitOps](../diagrams/img/flujo_CICD.png)
 
 ---
 

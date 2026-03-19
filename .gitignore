@@ -41,3 +41,6 @@ kubeconfig
 
 # Logs
 *.log
+
+# Documentación interna - no subir
+docs/paso_a_paso/
