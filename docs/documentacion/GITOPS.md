@@ -18,9 +18,21 @@ En este proyecto, Git actúa como la **única fuente de verdad** del estado del 
 ## Repositorio
 
 ```
-https://github.com/RubenLopSol/proyecto_final.git
-Rama principal: master / main
+https://github.com/RubenLopSol/proyecto-final-devops.git
+Rama principal: master
 ```
+
+> **Requisito:** El repositorio debe ser **público** para que ArgoCD pueda leer los manifiestos sin credenciales adicionales. Si el repositorio es privado, hay que registrar las credenciales en ArgoCD:
+> ```bash
+> kubectl create secret generic argocd-repo-creds \
+>   -n argocd \
+>   --from-literal=url=https://github.com/RubenLopSol \
+>   --from-literal=username=RubenLopSol \
+>   --from-literal=password=<GITHUB_PAT> \
+>   --dry-run=client -o yaml | \
+>   kubectl label --local -f - argocd.argoproj.io/secret-type=repo-creds -o yaml | \
+>   kubectl apply -f -
+> ```
 
 ### Estructura de manifiestos
 

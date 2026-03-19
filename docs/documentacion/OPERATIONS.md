@@ -17,6 +17,41 @@ El repositorio incluye scripts en `scripts/` que automatizan las operaciones má
 
 ---
 
+## Arranque y Parada del Clúster
+
+```bash
+# Arrancar el clúster (perfil openpanel)
+minikube start -p openpanel
+
+# Parar el clúster (los datos persisten)
+minikube stop -p openpanel
+
+# Estado del clúster
+minikube status -p openpanel
+```
+
+### Recuperación tras reinicio de minikube
+
+Después de un `minikube start`, algunos pods pueden quedar en `CrashLoopBackOff` o `Init:Error`. El más habitual es `argocd-repo-server`:
+
+```bash
+# 1. Ver qué pods no están Running
+kubectl get pods -A | grep -v "Running\|Completed"
+
+# 2. Si argocd-repo-server está en Init:Error, borrarlo para que se recree limpio
+kubectl delete pod -n argocd -l app.kubernetes.io/name=repo-server
+
+# 3. Si sealed-secrets-controller está en CrashLoopBackOff
+kubectl delete pod -n kube-system -l app.kubernetes.io/name=sealed-secrets
+
+# 4. Esperar ~30s y verificar que todos han recuperado
+kubectl get pods -A | grep -v "Running\|Completed"
+```
+
+> **Nota:** El `argocd-repo-server` falla en el reinicio porque su init container `copyutil` intenta crear un enlace simbólico que ya existe del arranque anterior. Borrar el pod hace que Kubernetes lo recree con un estado limpio.
+
+---
+
 ## Gestión del Clúster
 
 ```bash
