@@ -6,7 +6,7 @@ metadata:
 spec:
   description: OpenPanel DevOps Project
   sourceRepos:
-    - "https://github.com/RubenLopSol/proyecto_final.git"
+    - "https://github.com/RubenLopSol/proyecto-final-devops.git"
   destinations:
     - namespace: openpanel
       server: https://kubernetes.default.svc
