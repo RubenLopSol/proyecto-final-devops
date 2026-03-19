@@ -25,15 +25,7 @@ En GitOps, todo debe estar en Git — incluyendo los secrets. **Sealed Secrets**
 
 ### Cómo funciona
 
-```
-kubeseal (clave pública del clúster)
-        │
-        ▼
-  SealedSecret (YAML cifrado) ──► Git ──► ArgoCD aplica ──► Clúster
-                                                                │
-                                          Sealed Secrets     descifra
-                                          Controller    ──────► Secret
-```
+![SealedSecret](../diagrams/img/sealedSecret.png)
 
 Solo el controlador del clúster (que tiene la clave privada) puede descifrar el SealedSecret. Aunque alguien acceda al repositorio, los valores están cifrados.
 
@@ -108,21 +100,8 @@ Se aplica un modelo **deny-by-default**: todo el tráfico está bloqueado por de
 
 ### Diagrama de conectividad permitida
 
-```
-Ingress Controller
-      │
-      ├──► Dashboard ──► API ──► PostgreSQL (:5432)
-      │                    └──► ClickHouse (:8123/:9000)
-      │                    └──► Redis (:6379)
-      │
-      └──► API         Worker ──► PostgreSQL
-                              └──► ClickHouse
-                              └──► Redis
+![Allow connect](../diagrams/img/allow_connect.png)
 
-Prometheus (observability) ──► redis_exporter (:9121)
-                           └──► postgres_exporter (:9187)
-                           └──► ClickHouse metrics (:9363)
-```
 
 ---
 

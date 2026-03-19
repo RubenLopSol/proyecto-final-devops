@@ -115,33 +115,7 @@ syncPolicy:
 
 ## Flujo de Despliegue GitOps
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        GitHub                               │
-│                                                             │
-│  Developer ──push──► main branch                           │
-│                           │                                 │
-│                    GitHub Actions CI                        │
-│                           │                                 │
-│              ┌────────────┴────────────┐                    │
-│              │                         │                    │
-│         CI exitoso                  CI falla               │
-│              │                         │                    │
-│      CD pipeline actualiza          PR bloqueado            │
-│      image tags en k8s/             (no merge)             │
-│              │                                              │
-└──────────────┼──────────────────────────────────────────────┘
-               │
-               ▼
-        ArgoCD detecta cambio en Git
-               │
-               ▼
-        ArgoCD sincroniza el clúster
-               │
-               ▼
-        Nueva versión desplegada en Kubernetes
-```
-
+![Flujo de despliegue GitOps](../diagrams/img/flujo_despliegue_GitOps.png)
 ---
 
 ## Kustomize — Overlay Local
