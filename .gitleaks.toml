@@ -1,0 +1,17 @@
+title = "Gitleaks config — OpenPanel DevOps Project"
+
+[extend]
+# Usar las reglas por defecto de gitleaks
+useDefault = true
+
+# Ignorar directorios que contienen datos cifrados (Sealed Secrets)
+# Los SealedSecrets son blobs cifrados con la clave pública del clúster
+# y no contienen credenciales en texto plano
+[allowlist]
+description = "Allowlist para datos cifrados y credenciales de test"
+paths = [
+  # SealedSecrets: datos cifrados, no son secretos reales
+  "k8s/argocd/sealed-secrets/.*\\.yaml",
+  # Terraform LocalStack: credenciales fijas de test (access_key = "test")
+  "terraform/localstack/.*\\.tf",
+]
