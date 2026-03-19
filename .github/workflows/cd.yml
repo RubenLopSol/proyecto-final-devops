@@ -17,23 +17,25 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get short SHA
+      - name: Get short SHA and owner
         id: sha
-        run: echo "short=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        run: |
+          echo "short=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Update API image tag
         run: |
-          sed -i "s|image: ghcr.io/.*/openpanel-api:.*|image: ghcr.io/${{ github.repository_owner }}/openpanel-api:main-${{ steps.sha.outputs.short }}|g" \
+          sed -i "s|image: ghcr.io/.*/openpanel-api:.*|image: ghcr.io/${{ steps.sha.outputs.owner }}/openpanel-api:main-${{ steps.sha.outputs.short }}|g" \
             k8s/base/openpanel/api-deployment-blue.yaml
 
       - name: Update Start image tag
         run: |
-          sed -i "s|image: ghcr.io/.*/openpanel-start:.*|image: ghcr.io/${{ github.repository_owner }}/openpanel-start:main-${{ steps.sha.outputs.short }}|g" \
+          sed -i "s|image: ghcr.io/.*/openpanel-start:.*|image: ghcr.io/${{ steps.sha.outputs.owner }}/openpanel-start:main-${{ steps.sha.outputs.short }}|g" \
             k8s/base/openpanel/start-deployment.yaml
 
       - name: Update Worker image tag
         run: |
-          sed -i "s|image: ghcr.io/.*/openpanel-worker:.*|image: ghcr.io/${{ github.repository_owner }}/openpanel-worker:main-${{ steps.sha.outputs.short }}|g" \
+          sed -i "s|image: ghcr.io/.*/openpanel-worker:.*|image: ghcr.io/${{ steps.sha.outputs.owner }}/openpanel-worker:main-${{ steps.sha.outputs.short }}|g" \
             k8s/base/openpanel/worker-deployment.yaml
 
       - name: Commit and push changes
