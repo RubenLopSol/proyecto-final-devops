@@ -35,6 +35,19 @@ case "${ACTION}" in
     kubectl exec -n "${NAMESPACE}" "${REDIS_POD}" -- redis-cli SAVE
     echo "Redis RDB snapshot triggered."
 
+    # ClickHouse
+    echo "--- ClickHouse backup ---"
+    CH_POD=$(kubectl get pod -n "${NAMESPACE}" -l app=clickhouse -o jsonpath='{.items[0].metadata.name}')
+    CH_BACKUP_FILE="backup-clickhouse-$(date +%Y%m%d-%H%M%S)"
+    # Forzar flush de datos en memoria a disco antes del backup
+    kubectl exec -n "${NAMESPACE}" "${CH_POD}" -- \
+      clickhouse-client --query "SYSTEM FLUSH LOGS"
+    # Backup de la base de datos openpanel usando el mecanismo nativo de ClickHouse
+    kubectl exec -n "${NAMESPACE}" "${CH_POD}" -- \
+      clickhouse-client --query \
+      "BACKUP DATABASE openpanel TO File('${CH_BACKUP_FILE}.zip')"
+    echo "ClickHouse backup saved: ${CH_BACKUP_FILE}.zip"
+
     echo "=== Database backups complete ==="
     ;;
 
@@ -62,7 +75,7 @@ case "${ACTION}" in
     echo ""
     echo "Actions:"
     echo "  backup [namespace]       Create a full Velero backup (default: openpanel)"
-    echo "  backup-db                Backup PostgreSQL and Redis"
+    echo "  backup-db                Backup PostgreSQL, Redis y ClickHouse"
     echo "  restore <backup-name>    Restore from a Velero backup"
     echo "  list                     List available backups"
     echo "  help                     Show this help"

@@ -1,0 +1,92 @@
+%% Infraestructura Kubernetes en Minikube
+graph TB
+    subgraph host["💻 HOST MACHINE (Linux)<br/>RAM: 12GB | CPU: 6 cores"]
+        subgraph minikube["🐳 MINIKUBE CLUSTER (Docker Driver)<br/>Kubernetes v1.28.0"]
+
+            subgraph ns_openpanel["Namespace: openpanel"]
+                subgraph app_layer["Application Layer"]
+                    START_POD["START<br/>Deployment<br/>2 pods"]
+                    API_POD["API<br/>Deployment<br/>2 pods"]
+                    WORKER_POD["WORKER<br/>Deployment<br/>1 pod"]
+                end
+
+                subgraph stateful_layer["Stateful Services"]
+                    PG_STS["PostgreSQL<br/>StatefulSet<br/>PVC: 10Gi"]
+                    CH_STS["ClickHouse<br/>StatefulSet<br/>PVC: 20Gi"]
+                    REDIS_DEP["Redis<br/>Deployment<br/>PVC: 5Gi"]
+                end
+            end
+
+            subgraph ns_monitoring["Namespace: monitoring"]
+                PROM_POD["Prometheus"]
+                GRAFANA_POD["Grafana"]
+                EXPORTERS["Exporters<br/>(postgres/redis/clickhouse)"]
+            end
+
+            subgraph ns_logging["Namespace: logging"]
+                LOKI_POD["Loki"]
+                PROMTAIL_DS["Promtail<br/>(DaemonSet)"]
+                TEMPO_POD["Tempo"]
+                OTEL_POD["OTEL Collector"]
+            end
+
+            subgraph ns_argocd["Namespace: argocd"]
+                ARGOCD_SERVER["ArgoCD Server"]
+                REPO_SERVER["Repo Server"]
+                APP_CTRL["Applications<br/>Controller"]
+            end
+
+            subgraph ns_backup["Namespace: backup"]
+                VELERO["Velero"]
+                MINIO["MinIO<br/>(S3-compatible)<br/>Storage: 50Gi PVC"]
+            end
+
+            subgraph ingress_ctrl["🌐 INGRESS CONTROLLER (NGINX)"]
+                INGRESS["Routes:<br/>openpanel.local<br/>api.openpanel.local<br/>grafana.local<br/>prometheus.local<br/>argocd.local"]
+            end
+
+            subgraph storage["💾 PERSISTENT STORAGE"]
+                SC["StorageClass: standard<br/>(Minikube default provisioner)<br/>Total: ~100Gi"]
+            end
+
+            %% Conexiones
+            INGRESS --> START_POD
+            INGRESS --> API_POD
+            API_POD --> PG_STS
+            API_POD --> CH_STS
+            API_POD --> REDIS_DEP
+            WORKER_POD --> PG_STS
+            WORKER_POD --> CH_STS
+            WORKER_POD --> REDIS_DEP
+
+            PG_STS -.->|uses| SC
+            CH_STS -.->|uses| SC
+            REDIS_DEP -.->|uses| SC
+            MINIO -.->|uses| SC
+
+            PROMTAIL_DS -.->|scrapes| START_POD
+            PROMTAIL_DS -.->|scrapes| API_POD
+            PROMTAIL_DS -.->|scrapes| WORKER_POD
+
+            PROM_POD -.->|monitors| START_POD
+            PROM_POD -.->|monitors| API_POD
+            PROM_POD -.->|monitors| WORKER_POD
+
+            VELERO -.->|backups to| MINIO
+        end
+
+        subgraph hosts["📝 /etc/hosts"]
+            HOSTS["192.168.49.2<br/>openpanel.local<br/>api.openpanel.local<br/>grafana.local<br/>prometheus.local<br/>argocd.local"]
+        end
+    end
+
+    %% Estilos
+    classDef namespace fill:#e0e7ff,stroke:#6366f1,stroke-width:2px
+    classDef pod fill:#bfdbfe,stroke:#3b82f6,stroke-width:2px
+    classDef stateful fill:#ddd6fe,stroke:#8b5cf6,stroke-width:2px
+    classDef system fill:#fed7aa,stroke:#f97316,stroke-width:2px
+
+    class ns_openpanel,ns_monitoring,ns_logging,ns_argocd,ns_backup namespace
+    class START_POD,API_POD,WORKER_POD,PROM_POD,GRAFANA_POD,LOKI_POD,TEMPO_POD,OTEL_POD,ARGOCD_SERVER,REPO_SERVER,APP_CTRL,VELERO pod
+    class PG_STS,CH_STS,REDIS_DEP,MINIO stateful
+    class INGRESS,SC,HOSTS system

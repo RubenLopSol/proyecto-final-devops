@@ -1,0 +1,105 @@
+%% Flujo CI/CD Completo con GitOps
+graph TB
+    DEV["👨‍💻 DEVELOPER<br/>(Local)"]
+
+    subgraph github_app["📦 GITHUB REPOSITORY<br/>github.com/user/openpanel"]
+        APP_REPO["Application Code<br/>apps/api, apps/start, apps/worker"]
+    end
+
+    subgraph ci["🔨 CI PIPELINE (GitHub Actions)"]
+        LINT["1️⃣ Lint<br/>ESLint, Prettier"]
+        TEST["2️⃣ Tests<br/>Jest, Unit Tests"]
+        SECURITY["3️⃣ Security<br/>Trivy, Gitleaks"]
+        BUILD["4️⃣ Build Docker Images<br/>api, start, worker"]
+        PUSH_GHCR["5️⃣ Push to GHCR<br/>ghcr.io/user/openpanel-*<br/>Tag: main-abc1234"]
+    end
+
+    subgraph cd["🚀 CD PIPELINE (GitHub Actions)"]
+        CHECKOUT["1️⃣ Checkout GitOps repo"]
+        UPDATE["2️⃣ Update kustomization.yaml<br/>with new image tags"]
+        COMMIT["3️⃣ Commit & Push<br/>to GitOps repo"]
+        TRIGGER["4️⃣ Trigger ArgoCD sync<br/>(optional)"]
+    end
+
+    subgraph github_gitops["📁 GITOPS REPOSITORY<br/>github.com/user/openpanel-gitops"]
+        GITOPS_REPO["gitops/<br/>├── base/<br/>├── overlays/local/<br/>└── argocd/applications/"]
+    end
+
+    subgraph argocd["🔷 ARGOCD (GitOps Controller)<br/>Namespace: argocd"]
+        DETECT["1️⃣ Detect changes in Git<br/>(polls every 3 min)"]
+        PULL["2️⃣ Pull new manifests<br/>from GitOps repo"]
+        COMPARE["3️⃣ Compare with<br/>cluster state"]
+        SYNC["4️⃣ Auto-sync<br/>(if enabled)"]
+        APPLY["5️⃣ Apply manifests<br/>to Kubernetes"]
+        HEALTH["6️⃣ Monitor<br/>health checks"]
+        HEAL["7️⃣ Self-heal<br/>(if drift detected)"]
+    end
+
+    subgraph k8s["☸️ KUBERNETES CLUSTER (Minikube)"]
+        PULL_IMG["1️⃣ Pull new images<br/>from GHCR"]
+        ROLLING["2️⃣ Rolling update<br/>(or Blue-Green)"]
+        HEALTH_K8S["3️⃣ Health checks<br/>(liveness/readiness)"]
+        TRAFFIC["4️⃣ Traffic switch<br/>when ready"]
+        TERMINATE["5️⃣ Terminate<br/>old pods"]
+    end
+
+    subgraph obs["📊 OBSERVABILITY STACK"]
+        METRICS["Prometheus → Metrics"]
+        LOGS["Loki → Logs"]
+        TRACES["Tempo → Traces"]
+        DASH["Grafana → Dashboards"]
+        ALERTS["AlertManager → Notifications"]
+    end
+
+    %% Flujo principal
+    DEV -->|"1. git push"| APP_REPO
+    APP_REPO -->|"2. Trigger"| LINT
+    LINT --> TEST
+    TEST --> SECURITY
+    SECURITY --> BUILD
+    BUILD --> PUSH_GHCR
+
+    PUSH_GHCR -->|"3. Update tags"| CHECKOUT
+    CHECKOUT --> UPDATE
+    UPDATE --> COMMIT
+    COMMIT --> TRIGGER
+
+    TRIGGER -->|"4. Git commit"| GITOPS_REPO
+
+    GITOPS_REPO -->|"5. Poll every 3 min"| DETECT
+    DETECT --> PULL
+    PULL --> COMPARE
+    COMPARE --> SYNC
+    SYNC --> APPLY
+    APPLY --> HEALTH
+    HEALTH --> HEAL
+
+    HEAL -->|"6. Apply to cluster"| PULL_IMG
+    PULL_IMG --> ROLLING
+    ROLLING --> HEALTH_K8S
+    HEALTH_K8S --> TRAFFIC
+    TRAFFIC --> TERMINATE
+
+    TERMINATE -.->|"7. Monitor"| METRICS
+    TERMINATE -.->|"7. Monitor"| LOGS
+    TERMINATE -.->|"7. Monitor"| TRACES
+
+    METRICS --> DASH
+    LOGS --> DASH
+    TRACES --> DASH
+    DASH --> ALERTS
+
+    %% Estilos
+    classDef developer fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000
+    classDef github fill:#24292e,stroke:#000,stroke-width:2px,color:#fff
+    classDef pipeline fill:#3b82f6,stroke:#1e40af,stroke-width:2px,color:#fff
+    classDef gitops fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    classDef k8s fill:#326ce5,stroke:#1a4d99,stroke-width:2px,color:#fff
+    classDef observability fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+
+    class DEV developer
+    class APP_REPO,GITOPS_REPO github
+    class LINT,TEST,SECURITY,BUILD,PUSH_GHCR,CHECKOUT,UPDATE,COMMIT,TRIGGER pipeline
+    class DETECT,PULL,COMPARE,SYNC,APPLY,HEALTH,HEAL gitops
+    class PULL_IMG,ROLLING,HEALTH_K8S,TRAFFIC,TERMINATE k8s
+    class METRICS,LOGS,TRACES,DASH,ALERTS observability
