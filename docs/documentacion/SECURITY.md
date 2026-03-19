@@ -46,6 +46,8 @@ Solo el controlador del clúster (que tiene la clave privada) puede descifrar el
 | `clickhouse-credentials.yaml` | openpanel | Usuario y contraseña de ClickHouse |
 | `openpanel-secrets.yaml` | openpanel | Variables sensibles de la aplicación |
 
+![Sealed Secrets — SealedSecrets gestionados por ArgoCD](../screenshots/sealed-secrets-argocd.png)
+
 ### Crear un nuevo Sealed Secret
 
 ```bash
@@ -81,6 +83,8 @@ kubectl get secret nuevo-secret -n openpanel
 kubectl get secret nuevo-secret -n openpanel \
   -o jsonpath='{.data.clave}' | base64 -d
 ```
+
+![Sealed Secrets — Secrets descifrados automáticamente en el namespace openpanel](../screenshots/sealed-secrets-decrypted.png)
 
 ---
 

@@ -148,6 +148,8 @@ velero backup create db-backup-$(date +%Y%m%d-%H%M) \
 
 ### Ver backups disponibles
 
+![Velero — Backups completados correctamente en MinIO](../screenshots/velero-backups-completed.png)
+
 ```bash
 # Listar todos los backups
 velero backup get --namespace velero

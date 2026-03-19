@@ -165,6 +165,8 @@ kubectl get service openpanel-api -n openpanel \
   -o jsonpath='{.spec.selector}'
 ```
 
+![Blue-Green — Service apuntando al deployment activo](../screenshots/blue-green-service.png)
+
 ### Paso 4 — Verificar la conmutación
 
 ```bash
@@ -202,6 +204,8 @@ El rollback tarda **menos de 5 segundos** — no requiere redespliegue ni espera
 ---
 
 ## Integración con ArgoCD
+
+![ArgoCD — Deployment Blue activo con pods Running](../screenshots/argocd-blue-deployment.png)
 
 En el modelo GitOps, el cambio del selector del Service debe también reflejarse en Git:
 

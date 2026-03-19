@@ -61,6 +61,8 @@ kubectl port-forward svc/prometheus -n observability 9090:9090
 # Todos los targets deben estar en estado "UP"
 ```
 
+![Prometheus — Targets activos en estado UP](../screenshots/prometheus-targets.png)
+
 ---
 
 ## Grafana
@@ -102,6 +104,8 @@ El dashboard `openpanel-k8s` (uid: `openpanel-k8s`) contiene **18 paneles** orga
 |---|---|---|
 | Node Disk Available | Stat | `node_filesystem_avail_bytes` |
 | Node Disk Usage % | Timeseries | Disk free/total ratio |
+
+![Grafana — Dashboard OpenPanel K8s Monitoring](../screenshots/grafana-dashboard.png)
 
 ---
 
@@ -224,6 +228,8 @@ groups:
         labels:
           severity: warning
 ```
+
+![Prometheus — Reglas de alerta activas (http://prometheus.local/alerts)](../screenshots/grafana-alert-rules.png)
 
 ---
 

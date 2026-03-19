@@ -111,6 +111,8 @@ terraform plan
 terraform apply
 ```
 
+![Terraform — Apply completado con LocalStack (7 recursos creados)](../screenshots/terraform-apply-localstack.png)
+
 Recursos creados (7 en total):
 
 | Recurso | Nombre |
@@ -138,6 +140,8 @@ aws --endpoint-url=http://localhost:4566 s3api get-bucket-versioning \
 # Verificar el usuario IAM
 aws --endpoint-url=http://localhost:4566 iam list-users
 ```
+
+![Terraform — Outputs con ARN del bucket y credenciales de Velero](../screenshots/terraform-outputs.png)
 
 ### Destruir los recursos
 

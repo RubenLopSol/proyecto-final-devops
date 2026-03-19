@@ -71,7 +71,13 @@ metadata:
 
 ---
 
+![ArgoCD — Vista general de las 3 aplicaciones Synced + Healthy](../screenshots/argocd-apps-overview.png)
+
+---
+
 ## ArgoCD — Aplicaciones
+
+![ArgoCD — Recursos desplegados de la aplicación openpanel](../screenshots/argocd-openpanel-resources.png)
 
 Se gestionan 3 aplicaciones ArgoCD:
 

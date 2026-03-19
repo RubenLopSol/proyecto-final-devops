@@ -55,6 +55,10 @@ OpenPanel es una plataforma de analítica web desplegada sobre un clúster local
 | `ingress-nginx` | Ingress Controller |
 | `sealed-secrets` | Sealed Secrets Controller |
 
+![Cluster — Todos los pods en estado Running](../screenshots/cluster-all-pods-running.png)
+
+![OpenPanel — Aplicación funcionando en el navegador](../screenshots/openpanel-app-running.png)
+
 ---
 
 ## Estructura del Repositorio

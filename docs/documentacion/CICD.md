@@ -16,6 +16,10 @@ Developer push ──► GitHub Actions CI ──► GHCR (imágenes) ──► 
 
 ---
 
+![GitHub Actions — CI Pipeline completado con éxito](../screenshots/github-actions-ci-success.png)
+
+---
+
 ## Pipeline CI — `ci.yml`
 
 El pipeline CI se ejecuta en cada `push` a `master`/`main` y en cada Pull Request.
@@ -111,6 +115,8 @@ cache-to: type=gha,mode=max
 ---
 
 ## Pipeline CD — `cd.yml`
+
+![GitHub Actions — CD Pipeline completado con éxito](../screenshots/github-actions-cd-success.png)
 
 El pipeline CD se ejecuta automáticamente **cuando el CI termina con éxito**.
 
