@@ -175,10 +175,10 @@ El nombre de usuario está referenciado en las ArgoCD Applications y en los mani
 
 | Archivo | Campo a cambiar | Valor actual |
 |---|---|---|
-| `k8s/argocd/applications/openpanel-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto_final.git` |
-| `k8s/argocd/applications/observability-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto_final.git` |
-| `k8s/argocd/applications/backup-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto_final.git` |
-| `k8s/argocd/projects/openpanel-project.yaml` | `spec.sourceRepos` | `https://github.com/RubenLopSol/proyecto_final.git` |
+| `k8s/argocd/applications/openpanel-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/applications/observability-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/applications/backup-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/projects/openpanel-project.yaml` | `spec.sourceRepos` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
 | `k8s/base/openpanel/api-deployment-blue.yaml` | `image` | `ghcr.io/rubenlopsol/openpanel-api:...` |
 | `k8s/base/openpanel/api-deployment-green.yaml` | `image` | `ghcr.io/rubenlopsol/openpanel-api:...` |
 | `k8s/base/openpanel/start-deployment.yaml` | `image` | `ghcr.io/rubenlopsol/openpanel-start:...` |
