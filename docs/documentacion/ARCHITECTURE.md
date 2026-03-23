@@ -110,6 +110,19 @@ proyecto_final/
 ### ¿Por qué Kustomize y no Helm?
 Kustomize permite mantener manifiestos YAML puros versionados en Git, sin abstracciones adicionales. Los overlays permiten personalizar el clúster local sin duplicar configuración.
 
+La principal ventaja es poder soportar múltiples entornos (local, staging, producción) con el **mínimo código posible**, modificando únicamente lo que cambia en cada uno:
+
+```
+k8s/
+├── base/              → configuración común a todos los entornos (se escribe una sola vez)
+└── overlays/
+    ├── local/         → solo lo que cambia en Minikube (menos recursos)
+    ├── staging/       → solo lo que cambia en staging (réplicas, URLs)
+    └── production/    → solo lo que cambia en producción (recursos completos, HPA)
+```
+
+Cada overlay únicamente define sus diferencias respecto a `base/`. No se repite ningún YAML. Si hay que cambiar algo común a todos los entornos, se cambia una sola vez en `base/` y todos los overlays lo heredan automáticamente.
+
 ### ¿Por qué ArgoCD para CD?
 ArgoCD implementa el modelo GitOps puro: el estado del clúster siempre converge hacia lo que está en Git. Permite rollbacks inmediatos y auditabilidad completa de despliegues.
 

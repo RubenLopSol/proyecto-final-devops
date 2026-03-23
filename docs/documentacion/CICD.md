@@ -170,7 +170,17 @@ El proyecto sigue **Semantic Versioning (SemVer)** para releases oficiales.
 
 ---
 
-## Secrets del Pipeline
+## Variables y Secrets del Pipeline
+
+### Variables (`vars.`)
+
+| Variable | Uso | Dónde configurar |
+|---|---|---|
+| `REGISTRY_OWNER` | Owner del registry de imágenes en GHCR | Settings → Secrets and variables → Actions → Variables |
+
+> Usar `vars.REGISTRY_OWNER` en lugar de `github.actor` garantiza que las imágenes siempre se publican bajo el mismo usuario, independientemente de quién haga el push.
+
+### Secrets (`secrets.`)
 
 | Secret | Uso |
 |---|---|
