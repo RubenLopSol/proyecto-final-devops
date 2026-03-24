@@ -169,9 +169,13 @@ argocd-apps:
 # Sealed Secrets
 # ----------------------------------------------------------------------------
 sealed-secrets:
-	kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.24.5/controller.yaml
-	kubectl wait --for=condition=ready pod -l name=sealed-secrets-controller \
-		-n kube-system --timeout=120s
+	helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+	helm repo update
+	helm install sealed-secrets sealed-secrets/sealed-secrets \
+		--namespace sealed-secrets --create-namespace
+	kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=sealed-secrets \
+		-n sealed-secrets --timeout=120s
+	kubectl apply -f k8s/argocd/sealed-secrets/
 
 # ----------------------------------------------------------------------------
 # Despliegue manual (alternativa a ArgoCD)
