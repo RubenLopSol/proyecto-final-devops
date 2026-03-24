@@ -1,16 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability
+  name: observability-tempo
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: openpanel
-  source:
-    repoURL: https://github.com/RubenLopSol/proyecto-final-devops.git
-    targetRevision: master
-    path: k8s/base/observability
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: tempo
+      targetRevision: "1.10.3"
+      helm:
+        valueFiles:
+          - $values/k8s/helm/values/tempo.yaml
+    - repoURL: https://github.com/RubenLopSol/proyecto-final-devops.git
+      targetRevision: master
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

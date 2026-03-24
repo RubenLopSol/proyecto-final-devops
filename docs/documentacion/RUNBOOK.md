@@ -145,11 +145,11 @@ opening storage failed: lock DB directory: resource temporarily unavailable
 ```bash
 # NO hacer rollout restart (empeora el problema)
 # Eliminar el pod directamente para que Kubernetes lo recree limpio
-kubectl delete pod -n observability -l app=prometheus
+kubectl delete pod -n observability -l app.kubernetes.io/name=prometheus
 
 # Verificar que el nuevo pod arranca correctamente
 kubectl get pods -n observability -w
-kubectl logs -n observability -l app=prometheus --tail=20
+kubectl logs -n observability -l app.kubernetes.io/name=prometheus --tail=20
 ```
 
 ---

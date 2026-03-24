@@ -38,12 +38,17 @@ proyecto_final/
 │   ├── base/
 │   │   ├── namespaces/         # Definición de namespaces
 │   │   ├── openpanel/          # API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis
-│   │   ├── observability/      # Prometheus, Grafana, Loki, Promtail, Tempo
 │   │   └── backup/             # MinIO, Velero schedules
+│   ├── helm/
+│   │   └── values/             # Values files para Helm charts de observabilidad
+│   │       ├── kube-prometheus-stack.yaml  # Prometheus + Grafana + alertas
+│   │       ├── loki.yaml                   # Agregación de logs
+│   │       ├── promtail.yaml               # Recolección de logs
+│   │       └── tempo.yaml                  # Distributed tracing
 │   ├── overlays/
 │   │   └── local/              # Overlay para Minikube (resource limits)
 │   └── argocd/
-│       ├── applications/       # ArgoCD Application manifests
+│       ├── applications/       # ArgoCD Application manifests (Kustomize + Helm)
 │       ├── projects/           # ArgoCD Project
 │       └── sealed-secrets/     # Secrets cifrados (Sealed Secrets)
 ├── .github/workflows/
@@ -51,7 +56,7 @@ proyecto_final/
 │   └── cd.yml                  # Pipeline CD: actualiza image tags en Git
 ├── scripts/
 │   ├── setup-minikube.sh       # Arrancar el clúster
-│   ├── install-argocd.sh       # Instalar ArgoCD
+│   ├── install-argocd.sh       # Instalar ArgoCD via Helm
 │   ├── blue-green-switch.sh    # Conmutación Blue-Green
 │   └── backup-restore.sh       # Backup y restauración (Velero, PostgreSQL, Redis, ClickHouse)
 ├── terraform/
@@ -64,6 +69,8 @@ proyecto_final/
 │       ├── iam.tf              # IAM User + Access Key (sin IRSA)
 │       ├── variables.tf
 │       └── outputs.tf
+├── credentials-velero.example  # Plantilla de credenciales MinIO para Velero
+├── Makefile                    # Automatización del despliegue completo
 └── docs/
     ├── documentacion/          # Documentación técnica completa
     └── propuesta_proyecto/     # Propuesta del proyecto
@@ -111,7 +118,7 @@ Esto despliega automáticamente todos los secrets necesarios:
 - Credenciales de Grafana admin (`namespace: observability`)
 - Credenciales de MinIO (`namespace: backup`)
 
-### 4. Instalar ArgoCD
+### 4. Instalar ArgoCD (via Helm)
 
 ```bash
 ./scripts/install-argocd.sh
@@ -127,12 +134,9 @@ kubectl apply -f k8s/argocd/applications/
 ### 6. Instalar Velero
 
 ```bash
-# Crear el archivo de credenciales de MinIO (mismo usuario/password que el Sealed Secret)
-cat > velero-credentials <<EOF
-[default]
-aws_access_key_id=minioadmin
-aws_secret_access_key=minio-secret-2024
-EOF
+# Crear el archivo de credenciales de MinIO a partir de la plantilla
+cp credentials-velero.example velero-credentials
+# Editar velero-credentials con tus credenciales reales (no commitear este archivo)
 
 velero install \
   --provider aws \
@@ -176,7 +180,10 @@ El nombre de usuario está referenciado en las ArgoCD Applications y en los mani
 | Archivo | Campo a cambiar | Valor actual |
 |---|---|---|
 | `k8s/argocd/applications/openpanel-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
-| `k8s/argocd/applications/observability-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/applications/observability-prometheus-app.yaml` | `spec.sources[0].repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/applications/observability-loki-app.yaml` | `spec.sources[0].repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/applications/observability-promtail-app.yaml` | `spec.sources[0].repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
+| `k8s/argocd/applications/observability-tempo-app.yaml` | `spec.sources[0].repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
 | `k8s/argocd/applications/backup-app.yaml` | `spec.source.repoURL` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
 | `k8s/argocd/projects/openpanel-project.yaml` | `spec.sourceRepos` | `https://github.com/RubenLopSol/proyecto-final-devops.git` |
 | `k8s/base/openpanel/api-deployment-blue.yaml` | `image` | `ghcr.io/rubenlopsol/openpanel-api:...` |
@@ -187,10 +194,12 @@ El nombre de usuario está referenciado en las ArgoCD Applications y en los mani
 Sustitución rápida con `sed`:
 
 ```bash
-# Reemplazar el usuario en todo el directorio k8s/
+# Reemplazar el usuario en todo el directorio k8s/ (aplicaciones ArgoCD e imágenes)
 find k8s/ -name "*.yaml" -exec sed -i \
   's/RubenLopSol/<TU_USUARIO_GITHUB>/g; s/rubenlopsol/<tu_usuario_github_minusculas>/g' {} +
 ```
+
+> **Nota:** Las 4 aplicaciones de observabilidad (`observability-prometheus-app.yaml`, `observability-loki-app.yaml`, `observability-promtail-app.yaml`, `observability-tempo-app.yaml`) usan Helm charts públicos como fuente principal — solo hay que actualizar el `repoURL` del segundo source (donde están los values).
 
 ---
 

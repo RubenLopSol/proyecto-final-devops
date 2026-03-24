@@ -73,7 +73,7 @@ proyecto_final/
 │   ├── base/
 │   │   ├── namespaces/     # Definición de namespaces
 │   │   ├── openpanel/      # Manifiestos de la aplicación
-│   │   ├── observability/  # Prometheus, Grafana, Loki, Tempo
+│   ├── helm/values/        # Values files para Helm charts
 │   │   └── backup/         # MinIO, Velero schedules
 │   ├── overlays/
 │   │   └── local/          # Overlay Minikube (resource limits patch)
@@ -98,7 +98,11 @@ proyecto_final/
 | Minikube | v1.32+ | Clúster local de Kubernetes |
 | Kubernetes | v1.28 | Orquestación de contenedores |
 | Ingress NGINX | helm chart | Exposición de servicios |
-| ArgoCD | v2.x | GitOps controller |
+| ArgoCD | v2.x (Helm chart) | GitOps controller |
+| kube-prometheus-stack | Helm chart | Prometheus + Grafana + Node Exporter |
+| Loki | Helm chart | Agregación de logs |
+| Promtail | Helm chart | Recolección de logs (DaemonSet) |
+| Tempo | Helm chart | Distributed tracing |
 | Sealed Secrets | helm chart | Gestión segura de secrets |
 | Velero | v1.x | Backup y restauración |
 | MinIO | latest | Object storage para backups |

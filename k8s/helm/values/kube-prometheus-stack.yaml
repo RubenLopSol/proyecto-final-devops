@@ -1,0 +1,162 @@
+# =============================================================================
+# kube-prometheus-stack — Helm values
+# Incluye: Prometheus + Grafana + AlertManager + Node Exporter + kube-state-metrics
+# Chart: prometheus-community/kube-prometheus-stack
+# =============================================================================
+
+# ----------------------------------------------------------------------------
+# Prometheus
+# ----------------------------------------------------------------------------
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+    # Scrape configs personalizados para OpenPanel
+    additionalScrapeConfigs:
+      - job_name: "kubernetes-pods"
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+# Reglas de alerta personalizadas
+additionalPrometheusRulesMap:
+  openpanel-alerts:
+    groups:
+      - name: openpanel-alerts
+        rules:
+          - alert: ServiceDown
+            expr: up{job=~".*openpanel.*"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Service {{ $labels.job }} is down"
+              description: "{{ $labels.job }} ha estado caído más de 2 minutos."
+
+          - alert: HighErrorRate
+            expr: >
+              sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+              /
+              sum(rate(http_requests_total[5m])) by (job)
+              > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "High error rate on {{ $labels.job }}"
+              description: "Tasa de error por encima del 5% durante 5 minutos."
+
+          - alert: HighMemoryUsage
+            expr: >
+              container_memory_usage_bytes{namespace="openpanel"}
+              /
+              container_spec_memory_limit_bytes{namespace="openpanel"}
+              > 0.9
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage on {{ $labels.pod }}"
+              description: "Uso de memoria por encima del 90% del límite."
+
+          - alert: DatabaseDown
+            expr: pg_up == 0 or redis_up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Database {{ $labels.job }} is down"
+              description: "Base de datos no accesible durante 1 minuto."
+
+# ----------------------------------------------------------------------------
+# Grafana
+# ----------------------------------------------------------------------------
+grafana:
+  enabled: true
+  adminPassword: admin
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.local
+
+  # Datasources: Prometheus + Loki + Tempo con correlación
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki-gateway.observability.svc.cluster.local
+      editable: false
+      jsonData:
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: "traceID=(\\w+)"
+            name: TraceID
+            url: "$${__value.raw}"
+
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      access: proxy
+      url: http://tempo.observability.svc.cluster.local:3100
+      editable: false
+      jsonData:
+        tracesToLogs:
+          datasourceUid: loki
+          tags: ["job", "namespace", "pod"]
+        serviceMap:
+          datasourceUid: prometheus
+
+# ----------------------------------------------------------------------------
+# AlertManager
+# ----------------------------------------------------------------------------
+alertmanager:
+  enabled: false
+
+# ----------------------------------------------------------------------------
+# Node Exporter (métricas del nodo)
+# ----------------------------------------------------------------------------
+nodeExporter:
+  enabled: true
+
+# ----------------------------------------------------------------------------
+# kube-state-metrics (métricas de objetos Kubernetes)
+# ----------------------------------------------------------------------------
+kubeStateMetrics:
+  enabled: true

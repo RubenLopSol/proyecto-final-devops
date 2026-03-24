@@ -203,7 +203,10 @@ argocd app list
 
 # Sincronizar manualmente una app
 argocd app sync openpanel
-argocd app sync observability
+argocd app sync observability-prometheus
+argocd app sync observability-loki
+argocd app sync observability-promtail
+argocd app sync observability-tempo
 argocd app sync backup
 
 # Ver diferencias entre Git y el clúster

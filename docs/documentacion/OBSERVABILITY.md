@@ -15,7 +15,7 @@ El sistema implementa los tres pilares de la observabilidad:
 | **Trazas** | Tempo | 3200 / 4317 | Tracing distribuido (OTLP) |
 | **Dashboards** | Grafana | 3000 | Visualización unificada |
 
-Todos los componentes se despliegan en el namespace `observability`.
+Todos los componentes se despliegan en el namespace `observability` mediante **Helm charts oficiales** gestionados por ArgoCD.
 
 ---
 
@@ -111,19 +111,9 @@ El dashboard `openpanel-k8s` (uid: `openpanel-k8s`) contiene **18 paneles** orga
 
 ### Automatización del Dashboard
 
-El dashboard se aprovisiona automáticamente desde ConfigMaps montados en el deployment de Grafana:
+Grafana se despliega vía el chart `kube-prometheus-stack`. Los datasources (Prometheus, Loki, Tempo) se configuran automáticamente mediante el campo `additionalDataSources` en `k8s/helm/values/kube-prometheus-stack.yaml`.
 
-```yaml
-volumes:
-  - name: datasources        # grafana-datasources ConfigMap
-  - name: dashboard-provisioning  # grafana-dashboard-provisioning ConfigMap
-  - name: dashboard-openpanel     # grafana-dashboard-openpanel ConfigMap (el JSON)
-  - name: data               # PVC grafana-data (persistencia)
-```
-
-El dashboard se recarga cada **30 segundos** (`updateIntervalSeconds: 30` en el provisioner).
-
-No se requiere ninguna acción manual — al arrancar Grafana, el dashboard aparece automáticamente.
+No se requiere ninguna acción manual — al arrancar Grafana, los datasources aparecen automáticamente configurados.
 
 ---
 
@@ -134,18 +124,18 @@ No se requiere ninguna acción manual — al arrancar Grafana, el dashboard apar
 # http://grafana.local
 
 # Via port-forward
-kubectl port-forward svc/grafana -n observability 3000:3000
+kubectl port-forward svc/observability-prometheus-grafana -n observability 3000:3000
 # http://localhost:3000
-# Usuario: admin (desde Secret grafana-admin-credentials)
+# Usuario: admin / Password: admin (configurable en kube-prometheus-stack.yaml)
 ```
 
 ### Datasources configurados
 
 | Datasource | URL interna | Tipo |
 |---|---|---|
-| Prometheus | `http://prometheus.observability.svc.cluster.local:9090` | prometheus |
-| Loki | `http://loki.observability.svc.cluster.local:3100` | loki |
-| Tempo | `http://tempo.observability.svc.cluster.local:3200` | tempo |
+| Prometheus | `http://observability-prometheus-prometheus.observability.svc.cluster.local:9090` | prometheus |
+| Loki | `http://loki-gateway.observability.svc.cluster.local` | loki |
+| Tempo | `http://tempo.observability.svc.cluster.local:3100` | tempo |
 
 ---
 
@@ -233,22 +223,37 @@ groups:
 
 ---
 
+## Despliegue — Helm charts via ArgoCD
+
+El stack de observabilidad se gestiona con **4 Helm charts oficiales**, cada uno con su propia ArgoCD Application:
+
+| ArgoCD Application | Helm Chart | Versión | Incluye |
+|---|---|---|---|
+| `observability-prometheus` | `prometheus-community/kube-prometheus-stack` | 65.1.1 | Prometheus + Grafana + Node Exporter + kube-state-metrics |
+| `observability-loki` | `grafana/loki` | 6.6.2 | Loki (modo single binary) |
+| `observability-promtail` | `grafana/promtail` | 6.16.4 | Promtail DaemonSet |
+| `observability-tempo` | `grafana/tempo` | 1.10.3 | Tempo |
+
+Los values de cada chart se gestionan en `k8s/helm/values/` y se versionan en Git. ArgoCD usa la feature **multi-source** para combinar el chart de Helm con los values del repositorio.
+
+---
+
 ## Verificación del Stack
 
 ```bash
 # Verificar todos los pods de observabilidad
 kubectl get pods -n observability
 
+# Verificar que ArgoCD sincronizó las 4 apps
+kubectl get applications -n argocd | grep observability
+
 # Ver targets de Prometheus (todos deben ser UP)
-kubectl port-forward svc/prometheus -n observability 9090:9090
+kubectl port-forward svc/observability-prometheus-prometheus -n observability 9090:9090
 # http://localhost:9090/targets
 
 # Ver logs de Promtail (verificar que recopila logs)
-kubectl logs -n observability -l app=promtail --tail=20
+kubectl logs -n observability -l app.kubernetes.io/name=promtail --tail=20
 
-# Verificar que Grafana cargó los datasources
-kubectl logs -n observability -l app=grafana | grep -i datasource
-
-# Si Prometheus está en CrashLoopBackOff por lock de TSDB
-kubectl delete pod -n observability -l app=prometheus
+# Si un pod está en CrashLoopBackOff
+kubectl describe pod -n observability <pod-name>
 ```

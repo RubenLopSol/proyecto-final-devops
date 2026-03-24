@@ -40,9 +40,14 @@ Rama principal: master
 k8s/
 ├── base/                        ← Configuración base reutilizable
 │   ├── namespaces/
-│   ├── openpanel/               ← App: API, Dashboard, Worker, DBs
-│   ├── observability/           ← Prometheus, Grafana, Loki, Tempo
-│   └── backup/                  ← MinIO, Velero schedules
+│   ├── openpanel/               ← App: API, Dashboard, Worker, DBs (Kustomize)
+│   └── backup/                  ← MinIO, Velero schedules (Kustomize)
+├── helm/
+│   └── values/                  ← Values files para Helm charts de observabilidad
+│       ├── kube-prometheus-stack.yaml
+│       ├── loki.yaml
+│       ├── promtail.yaml
+│       └── tempo.yaml
 ├── overlays/
 │   └── local/                   ← Personalización para Minikube
 │       ├── kustomization.yaml
@@ -79,13 +84,18 @@ metadata:
 
 ![ArgoCD — Recursos desplegados de la aplicación openpanel](../screenshots/argocd-openpanel-resources.png)
 
-Se gestionan 3 aplicaciones ArgoCD:
+Se gestionan 6 aplicaciones ArgoCD:
 
-| Aplicación | Path en Git | Namespace destino | Sync |
+| Aplicación | Fuente | Namespace destino | Sync |
 |---|---|---|---|
-| `openpanel` | `k8s/overlays/local` | `openpanel` | Automático |
-| `observability` | `k8s/base/observability` | `observability` | Automático |
-| `backup` | `k8s/base/backup` | `backup` | Automático |
+| `openpanel` | Git + Kustomize (`k8s/overlays/local`) | `openpanel` | Automático |
+| `backup` | Git + Kustomize (`k8s/base/backup`) | `backup` | Automático |
+| `observability-prometheus` | Helm chart `kube-prometheus-stack` + values Git | `observability` | Automático |
+| `observability-loki` | Helm chart `grafana/loki` + values Git | `observability` | Automático |
+| `observability-promtail` | Helm chart `grafana/promtail` + values Git | `observability` | Automático |
+| `observability-tempo` | Helm chart `grafana/tempo` + values Git | `observability` | Automático |
+
+Las aplicaciones de observabilidad usan la feature **multi-source** de ArgoCD: una fuente apunta al Helm chart oficial y otra al repositorio Git donde viven los values.
 
 ### Configuración de sync automático
 

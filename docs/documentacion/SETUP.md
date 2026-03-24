@@ -104,23 +104,7 @@ Usar el script incluido en el repositorio:
 ./scripts/install-argocd.sh
 ```
 
-El script instala ArgoCD, espera a que esté listo, lo configura en modo HTTP (sin TLS) y crea el Ingress para acceder via `http://argocd.local`. Al finalizar muestra la contraseña inicial del admin.
-
-Si se prefiere instalación manual:
-
-```bash
-kubectl create namespace argocd
-kubectl apply -n argocd \
-  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-kubectl wait --for=condition=Ready pod \
-  -l app.kubernetes.io/name=argocd-server \
-  -n argocd --timeout=300s
-
-# Obtener contraseña inicial
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d && echo
-```
+El script instala ArgoCD via **Helm** (`argo/argo-cd`), espera a que esté listo, lo configura en modo HTTP (sin TLS) y crea el Ingress para acceder via `http://argocd.local`. Al finalizar muestra la contraseña inicial del admin.
 
 ---
 
@@ -136,9 +120,12 @@ kubectl get applications -n argocd -w
 ```
 
 ArgoCD desplegará automáticamente:
-- `openpanel` → API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis
-- `observability` → Prometheus, Grafana, Loki, Promtail, Tempo
-- `backup` → MinIO
+- `openpanel` → API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis (Kustomize)
+- `observability-prometheus` → Prometheus + Grafana + Node Exporter (Helm)
+- `observability-loki` → Loki (Helm)
+- `observability-promtail` → Promtail (Helm)
+- `observability-tempo` → Tempo (Helm)
+- `backup` → MinIO (Kustomize)
 
 ---
 

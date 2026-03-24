@@ -133,10 +133,12 @@ Cada componente tiene su propio **ServiceAccount** con solo los permisos necesar
 
 ### Prometheus
 
-Prometheus necesita permisos de lectura sobre los recursos del clúster para el autodescubrimiento:
+Prometheus necesita permisos de lectura sobre los recursos del clúster para el autodescubrimiento de targets (nodos, pods, servicios, endpoints e ingresses).
+
+El RBAC de Prometheus (ClusterRole + ClusterRoleBinding + ServiceAccount) es gestionado automáticamente por el chart **`kube-prometheus-stack`** al desplegarse vía ArgoCD. No es necesario mantener YAMLs manuales de RBAC.
 
 ```yaml
-# k8s/base/observability/prometheus/rbac.yaml
+# Permisos que aplica el chart internamente:
 rules:
   - apiGroups: [""]
     resources: ["nodes", "pods", "services", "endpoints"]
@@ -148,9 +150,10 @@ rules:
 
 ### Promtail
 
-Promtail necesita permisos para listar pods y leer sus logs:
+Promtail necesita permisos para listar pods y leer sus logs. Al igual que Prometheus, el RBAC es gestionado automáticamente por el chart **`grafana/promtail`**:
 
 ```yaml
+# Permisos que aplica el chart internamente:
 rules:
   - apiGroups: [""]
     resources: ["pods", "nodes"]
