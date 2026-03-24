@@ -25,7 +25,7 @@ export GH_TOKEN = $(GITHUB_TOKEN)
 
 .PHONY: help all setup-github docker-login cluster dns argocd argocd-apps \
         sealed-secrets app observability backup status stop destroy \
-        blue-green backup-run logs
+        blue-green backup-run logs open
 
 # ----------------------------------------------------------------------------
 # Default — muestra ayuda
@@ -50,6 +50,7 @@ help:
 	@echo "    make backup           Despliega MinIO (manual)"
 	@echo ""
 	@echo "  Operaciones:"
+	@echo "    make open             Abre todas las UIs en el navegador"
 	@echo "    make blue-green       Ejecuta el switch Blue-Green de la API"
 	@echo "    make backup-run       Crea un backup manual con Velero"
 	@echo "    make logs             Muestra logs de los pods de la app"
@@ -70,7 +71,7 @@ help:
 # ----------------------------------------------------------------------------
 # Todo de una vez
 # ----------------------------------------------------------------------------
-all: setup-github docker-login cluster dns argocd sealed-secrets argocd-apps
+all: setup-github docker-login cluster dns argocd sealed-secrets argocd-apps open
 	@echo ""
 	@echo "=========================================="
 	@echo "  Instalación completa finalizada"
@@ -144,6 +145,10 @@ cluster:
 	$(SCRIPTS_DIR)/setup-minikube.sh
 
 dns:
+	@if grep -q "openpanel.local" /etc/hosts; then \
+		echo "DNS ya configurado en /etc/hosts — actualizando IP..."; \
+		sudo sed -i '/openpanel.local/d' /etc/hosts; \
+	fi
 	@echo "$(shell minikube ip -p $(PROFILE)) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local" \
 		| sudo tee -a /etc/hosts
 	@echo "DNS configurado. Verifica con: grep openpanel.local /etc/hosts"
@@ -227,3 +232,14 @@ status:
 	@echo "=== ArgoCD Apps ==="
 	@kubectl get applications -n argocd 2>/dev/null || echo "ArgoCD no instalado"
 	@echo ""
+
+# ----------------------------------------------------------------------------
+# Abrir UIs en el navegador
+# ----------------------------------------------------------------------------
+open:
+	@echo "=== Abriendo servicios en el navegador ==="
+	@xdg-open http://openpanel.local &
+	@xdg-open http://api.openpanel.local &
+	@xdg-open http://argocd.local &
+	@xdg-open http://grafana.local &
+	@xdg-open http://prometheus.local &
