@@ -29,6 +29,24 @@ Pipeline DevOps completo para [OpenPanel](https://github.com/Openpanel-dev/openp
 
 ---
 
+## Despliegue Automático
+
+Para desplegar todo el proyecto desde cero con un solo comando:
+
+```bash
+make all GITHUB_USER=rubenlopsol GITHUB_TOKEN=gho_xxx
+```
+
+ArgoCD se encargará de sincronizar la aplicación, la observabilidad y el backup automáticamente tras la instalación. Para ver todos los comandos disponibles:
+
+```bash
+make help
+```
+
+Ver el [Makefile](Makefile) para el detalle de cada target.
+
+---
+
 ## Estructura del Repositorio
 
 ```
