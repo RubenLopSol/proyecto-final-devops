@@ -20,7 +20,7 @@ Developer push ──► GitHub Actions CI ──► GHCR (imágenes) ──► 
 
 ---
 
-## Pipeline CI — `ci.yml`
+# Pipeline CI — `ci.yml`
 
 El pipeline CI se ejecuta en cada `push` a `master`/`main` y en cada Pull Request.
 
@@ -77,6 +77,22 @@ Ejecutado con **Gitleaks** sobre todo el historial del repositorio (`fetch-depth
 
 **Solo se ejecuta en push a `main`/`master`** (no en PRs).
 
+#### Actions reutilizables (`uses`)
+
+GitHub Actions permite reutilizar acciones predefinidas publicadas por terceros. En lugar de programar cada paso desde cero, se llaman con `uses: autor/action@version` y se configuran con `with:`.
+
+Las actions usadas en este job:
+
+| Action | Autor | Qué hace |
+|---|---|---|
+| `actions/checkout@v4` | GitHub | Descarga el código del repositorio en la máquina virtual |
+| `docker/login-action@v3` | Docker | Hace login en GHCR usando las credenciales proporcionadas |
+| `docker/setup-buildx-action@v3` | Docker | Configura el motor de build avanzado de Docker (multi-plataforma, cache) |
+| `docker/metadata-action@v5` | Docker | Calcula automáticamente los tags de la imagen según el tipo de push (SHA, latest, semver, PR) |
+| `docker/build-push-action@v5` | Docker | Construye la imagen Docker y la sube al registry con los tags calculados |
+
+> `docker/metadata-action` es la pieza clave: mira el contexto del evento (push normal, tag de versión, PR) y decide qué tags aplicar automáticamente. Su resultado se pasa al paso siguiente mediante `${{ steps.meta.outputs.tags }}`.
+
 Construye y publica 3 imágenes en paralelo mediante `strategy.matrix`:
 
 | Servicio | Imagen publicada en GHCR |
@@ -114,7 +130,7 @@ cache-to: type=gha,mode=max
 
 ---
 
-## Pipeline CD — `cd.yml`
+# Pipeline CD — `cd.yml`
 
 ![GitHub Actions — CD Pipeline completado con éxito](../screenshots/github-actions-cd-success.png)
 
