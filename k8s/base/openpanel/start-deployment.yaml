@@ -23,7 +23,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: start
-          image: ghcr.io/rubenlopsol/openpanel-start:main-d98f5a5
+          image: ghcr.io/rubenlopsol/openpanel-start:main-79aa707
           ports:
             - containerPort: 3000
               name: http
