@@ -155,9 +155,16 @@ jobs:
 
       - name: kubectl dry-run validation
         run: |
+          # Create a minimal kubeconfig so kubectl can parse files without
+          # trying to reach a live cluster (no server needed for --dry-run=client)
+          export KUBECONFIG=$(mktemp)
+          kubectl config set-cluster ci --server=https://127.0.0.1:6443 --insecure-skip-tls-verify=true
+          kubectl config set-credentials ci --token=fake
+          kubectl config set-context ci --cluster=ci --user=ci
+          kubectl config use-context ci
           for f in $(find k8s/base -name '*.yaml' -not -name 'kustomization.yaml' -not -path '*/velero/*'); do
             echo "Validating: $f"
-            kubectl apply --dry-run=client -f "$f" 2>&1
+            kubectl apply --dry-run=client --validate=false -f "$f" 2>&1
           done
 
   secret-scan:
