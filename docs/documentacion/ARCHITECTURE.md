@@ -67,8 +67,11 @@ OpenPanel es una plataforma de analítica web desplegada sobre un clúster local
 proyecto_final/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml          # Pipeline CI (lint, build, scan)
-│       └── cd.yml          # Pipeline CD (actualiza tags en manifiestos)
+│       ├── ci-validate.yml     # CI-Lint-Test-Validate (gate de calidad)
+│       ├── ci-build-publish.yml           # CI-Build-Publish (construye y publica imágenes)
+│       └── cd-update-tags.yml  # CD-Update-GitOps-Manifests (actualiza tags en manifiestos)
+├── .kube-linter.yaml           # Checks selectivos de kube-linter (CI)
+├── .hadolint.yaml              # Reglas ignoradas de hadolint para Dockerfiles upstream (CI)
 ├── k8s/
 │   ├── base/
 │   │   ├── namespaces/     # Definición de namespaces

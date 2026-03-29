@@ -123,16 +123,18 @@ Al finalizar, imprime el comando de rollback instantáneo por si fuera necesario
 - Blue está activo con la versión `v1.0` y recibe todo el tráfico
 - Green tiene `replicas: 0` (no consume recursos)
 
-### Paso 1 — El CD actualiza la imagen en Green
+### Paso 1 — El CD actualiza la imagen en Blue
 
-El pipeline CD actualiza el tag en `api-deployment-green.yaml`:
+El pipeline CD actualiza el tag en `api-deployment-blue.yaml` (el slot activo por defecto):
 
 ```bash
-# CD pipeline actualiza el tag en Green
+# CD pipeline actualiza el tag en Blue (slot activo)
 image: ghcr.io/rubenlopsol/openpanel-api:main-abc1234
 ```
 
-ArgoCD despliega la nueva versión en Green.
+ArgoCD despliega la nueva versión en Blue mediante rolling update. Blue recibe el nuevo código mientras sigue en producción.
+
+Para usar el modelo Blue-Green completo (desplegar primero en Green, verificar, luego conmutar), editar manualmente el tag en `api-deployment-green.yaml` antes de ejecutar el script de conmutación.
 
 ### Paso 2 — Escalar Green y verificar
 

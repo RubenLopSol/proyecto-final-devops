@@ -51,9 +51,12 @@ make help
 ```
 proyecto_final/
 ├── .github/workflows/
-│   ├── ci-validate.yml          # CI-Lint-Test-Validate: gate de calidad en cada PR y push
+│   ├── ci-validate.yml          # CI-Lint-Test-Validate: valida manifiestos K8s, Dockerfiles y secretos en cada PR/push
 │   ├── ci-build-publish.yml     # CI-Build-Publish: construye imágenes, genera SBOM, escanea con Trivy
 │   └── cd-update-tags.yml       # CD-Update-GitOps-Manifests: actualiza image tags y crea release tag
+│
+├── .kube-linter.yaml            # Configuración de kube-linter (checks activos y excluidos)
+├── .hadolint.yaml               # Configuración de hadolint (nivel mínimo de severidad)
 │
 ├── openpanel/                   # Código fuente de OpenPanel (fork)
 │
@@ -240,7 +243,7 @@ El pipeline está dividido en tres workflows encadenados:
 push / PR
     │
     ▼
-ci-validate.yml          ← lint, tests, validación de manifiestos K8s, escaneo de secrets
+ci-validate.yml          ← validación de manifiestos K8s, linting de Dockerfiles, escaneo de secrets
     │ (solo en master)
     ▼
 ci-build-publish.yml     ← build de imágenes Docker, generación de SBOM, escaneo con Trivy
@@ -253,6 +256,12 @@ ArgoCD detecta el commit y despliega automáticamente
 ```
 
 - Las PRs solo ejecutan `ci-validate.yml` — nunca publican imágenes.
+- `ci-validate.yml` ejecuta tres comprobaciones de infraestructura:
+  - **kubeconform** — valida los manifiestos K8s (strict mode, schema K8s 1.28, verbose por recurso)
+  - **kube-linter** — buenas prácticas de seguridad en los manifiestos (configurado en `.kube-linter.yaml`)
+  - **hadolint** — linting de Dockerfiles (solo falla en errores, warnings de código upstream ignorados)
+  - **Gitleaks** — detección de secrets accidentalmente commiteados
+- El lint y tests de la aplicación están **desactivados intencionalmente** — este proyecto DevOps no es propietario del código fuente de OpenPanel. Ver comentario en `ci-validate.yml`.
 - El SBOM (Software Bill of Materials) se genera en formato SPDX-JSON para cada imagen publicada.
 - Trivy falla el pipeline si encuentra vulnerabilidades `CRITICAL` o `HIGH` con parche disponible.
 - El CD hace `targetRevision` apuntar al tag `release/main-<sha>` — el despliegue es inmutable y reversible.
@@ -270,6 +279,16 @@ find k8s/ -name "*.yaml" -exec sed -i \
 ```
 
 Archivos afectados: ArgoCD Applications (repoURL), AppProject (sourceRepos) y Deployments (imagen GHCR).
+
+También hay que crear la variable `REGISTRY_OWNER` en el repositorio de GitHub (el pipeline CI/CD la necesita para construir y publicar imágenes en GHCR):
+
+```bash
+gh variable set REGISTRY_OWNER \
+  --repo <TU_USUARIO>/<REPO> \
+  --body "<tu_usuario_en_minusculas>"
+```
+
+> `make setup-github` hace esto automáticamente al crear el repositorio.
 
 ---
 

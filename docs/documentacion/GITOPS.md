@@ -54,6 +54,7 @@ k8s/
 │       └── patches/
 │           └── resource-limits.yaml
 └── argocd/
+    ├── bootstrap-app.yaml       ← App of Apps raíz
     ├── applications/            ← ArgoCD Application CRDs
     ├── projects/                ← ArgoCD Project CRD
     └── sealed-secrets/          ← Secrets cifrados
@@ -76,6 +77,28 @@ metadata:
 
 ---
 
+## App of Apps — Bootstrap
+
+En lugar de aplicar manualmente `kubectl apply -f k8s/argocd/applications/` cada vez que se añade una aplicación, el proyecto usa el patrón **App of Apps**:
+
+`k8s/argocd/bootstrap-app.yaml` es una ArgoCD Application que vigila el directorio `k8s/argocd/applications/` en la rama master. Cuando se añade o modifica cualquier Application en ese directorio, el bootstrap la detecta y la aplica automáticamente.
+
+**Para arrancar todo el sistema:**
+
+```bash
+# Un solo comando tras instalar ArgoCD
+kubectl apply -f k8s/argocd/bootstrap-app.yaml
+
+# A partir de aquí ArgoCD gestiona todo lo demás automáticamente
+```
+
+**Ventajas:**
+- Añadir una nueva aplicación = crear un YAML en `k8s/argocd/applications/` + push
+- El CD pipeline puede actualizar el `targetRevision` de las Applications en Git — ArgoCD aplica el cambio sin intervención manual
+- Auditable: cualquier cambio en las Applications queda en el historial de Git
+
+---
+
 ![ArgoCD — Vista general de las 3 aplicaciones Synced + Healthy](../screenshots/argocd-apps-overview.png)
 
 ---
@@ -88,6 +111,7 @@ Se gestionan 6 aplicaciones ArgoCD:
 
 | Aplicación | Fuente | Namespace destino | Sync |
 |---|---|---|---|
+| `bootstrap` | Git (`k8s/argocd/applications/`) | `argocd` | Automático |
 | `openpanel` | Git + Kustomize (`k8s/overlays/local`) | `openpanel` | Automático |
 | `backup` | Git + Kustomize (`k8s/base/backup`) | `backup` | Automático |
 | `observability-prometheus` | Helm chart `kube-prometheus-stack` + values Git | `observability` | Automático |
@@ -170,6 +194,14 @@ argocd app history openpanel
 
 # Hacer rollback a una versión anterior
 argocd app rollback openpanel <revision-id>
+
+# Ver el historial de tags de release (despliegues)
+git tag --list 'release/*' --sort=-version:refname | head -10
+
+# Hacer rollback a un release tag anterior via GitOps:
+# 1. Editar k8s/argocd/applications/openpanel-app.yaml
+# 2. Cambiar targetRevision al tag deseado
+# 3. git add + commit + push → ArgoCD aplica el cambio
 
 # Ver diferencias entre Git y el clúster
 argocd app diff openpanel

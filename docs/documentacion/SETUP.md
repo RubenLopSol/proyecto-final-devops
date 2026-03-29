@@ -104,28 +104,37 @@ Usar el script incluido en el repositorio:
 ./scripts/install-argocd.sh
 ```
 
-El script instala ArgoCD via **Helm** (`argo/argo-cd`), espera a que esté listo, lo configura en modo HTTP (sin TLS) y crea el Ingress para acceder via `http://argocd.local`. Al finalizar muestra la contraseña inicial del admin.
+El script instala o actualiza ArgoCD via **Helm** (`argo/argo-cd`) usando el values file `k8s/helm/values/argocd.yaml`, espera a que el secret de admin esté disponible, aplica el AppProject y arranca el bootstrap de App of Apps. Al finalizar muestra la contraseña inicial del admin.
+
+El comando `helm upgrade --install` hace el script idempotente — se puede ejecutar varias veces sin error.
 
 ---
 
 ## 5. Desplegar con ArgoCD
 
-```bash
-# Aplicar el proyecto y las 3 aplicaciones
-kubectl apply -f k8s/argocd/projects/
-kubectl apply -f k8s/argocd/applications/
+El script `install-argocd.sh` ya aplica el proyecto y el bootstrap automáticamente. No se necesita ningún `kubectl apply` adicional.
 
+ArgoCD sincronizará automáticamente todas las aplicaciones definidas en `k8s/argocd/applications/`:
+
+| Aplicación | Qué despliega |
+|---|---|
+| `openpanel` | API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis |
+| `observability-prometheus` | Prometheus + Grafana + AlertManager + Node Exporter |
+| `observability-loki` | Loki |
+| `observability-promtail` | Promtail |
+| `observability-tempo` | Tempo |
+| `backup` | MinIO |
+
+```bash
 # Esperar a que ArgoCD sincronice (puede tardar 1-2 minutos)
 kubectl get applications -n argocd -w
 ```
 
-ArgoCD desplegará automáticamente:
-- `openpanel` → API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis (Kustomize)
-- `observability-prometheus` → Prometheus + Grafana + Node Exporter (Helm)
-- `observability-loki` → Loki (Helm)
-- `observability-promtail` → Promtail (Helm)
-- `observability-tempo` → Tempo (Helm)
-- `backup` → MinIO (Kustomize)
+Para sincronizar manualmente una aplicación específica:
+
+```bash
+argocd app sync openpanel
+```
 
 ---
 

@@ -175,48 +175,63 @@ Las trazas se pueden explorar desde Grafana usando el datasource Tempo.
 
 ---
 
-## Alertas — Prometheus Alertmanager
+## Alertas — Prometheus AlertManager
 
-Las alertas se definen en el ConfigMap de Prometheus. Ejemplos de reglas:
+Las alertas siguen este flujo:
+
+```
+Prometheus evalúa las reglas cada 30s
+       │
+       │ condición verdadera durante el tiempo configurado
+       ▼
+Se dispara la alerta → se envía a AlertManager
+       │
+       ▼
+AlertManager agrupa alertas (por alertname + namespace + severity)
+— espera 30s para agrupar alertas relacionadas (group_wait)
+— silencia warnings si ya hay un critical para la misma alerta (inhibit_rules)
+       │
+       ▼
+El router envía al receiver configurado
+— actualmente: receiver 'null' (no-op, para demo local)
+— producción: reemplazar con Slack/email/PagerDuty
+```
+
+### Reglas de alerta configuradas
+
+Las reglas están definidas en `k8s/helm/values/kube-prometheus-stack.yaml`:
+
+| Alerta | Condición | Duración | Severidad |
+|---|---|---|---|
+| `ServiceDown` | `up{job=~".*openpanel.*"} == 0` | 2 min | critical |
+| `HighErrorRate` | Tasa de errores HTTP 5xx > 5% | 5 min | critical |
+| `HighMemoryUsage` | Uso de memoria > 90% del límite | 5 min | warning |
+| `DatabaseDown` | `pg_up == 0 or redis_up == 0` | 1 min | critical |
+
+### AlertManager — Routing y receivers
+
+AlertManager está habilitado con la siguiente configuración:
+
+- **group_by**: `alertname`, `namespace`, `severity` — agrupa alertas relacionadas
+- **inhibit_rules**: si dispara un `critical` para una alerta, silencia el `warning` del mismo alertname en el mismo namespace
+- **Receiver actual**: `null` (demo local — las alertas se evalúan y enrutan pero no se reenvían)
+
+Para añadir notificaciones reales, reemplazar el receiver en `k8s/helm/values/kube-prometheus-stack.yaml`:
 
 ```yaml
-groups:
-  - name: openpanel
-    rules:
-      # API caída
-      - alert: APIDown
-        expr: up{job="openpanel-api"} == 0
-        for: 1m
-        labels:
-          severity: critical
+receivers:
+  - name: 'slack'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/...'
+        channel: '#alerts'
+        send_resolved: true
+```
 
-      # Redis caído
-      - alert: RedisDown
-        expr: redis_up == 0
-        for: 1m
-        labels:
-          severity: critical
+### Verificar AlertManager
 
-      # PostgreSQL caído
-      - alert: PostgreSQLDown
-        expr: pg_up == 0
-        for: 1m
-        labels:
-          severity: critical
-
-      # Alta tasa de errores HTTP
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
-        for: 5m
-        labels:
-          severity: warning
-
-      # Pod con alto uso de memoria
-      - alert: HighMemoryUsage
-        expr: container_memory_working_set_bytes > 900000000
-        for: 5m
-        labels:
-          severity: warning
+```bash
+kubectl port-forward svc/alertmanager-operated -n observability 9093:9093
+# http://localhost:9093
 ```
 
 ![Prometheus — Reglas de alerta activas (http://prometheus.local/alerts)](../screenshots/grafana-alert-rules.png)

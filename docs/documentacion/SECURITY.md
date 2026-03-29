@@ -171,17 +171,18 @@ ArgoCD tiene su propio sistema de RBAC. El proyecto `openpanel` limita las aplic
 **Trivy** se ejecuta en el pipeline CI después de cada build de imagen.
 
 ```yaml
-# .github/workflows/ci.yml — job security-scan
+# .github/workflows/ci-build-publish.yml — job security-scan
 - name: Run Trivy vulnerability scanner
-  uses: aquasecurity/trivy-action@master
+  uses: aquasecurity/trivy-action@0.28.0
   with:
-    image-ref: "ghcr.io/rubenlopsol/openpanel-api:latest"
+    image-ref: "ghcr.io/<owner>/openpanel-api:latest"
     format: "sarif"
     severity: "CRITICAL,HIGH"
-    exit-code: "0"    # No bloquea, solo informa
+    exit-code: "1"         # Bloquea el pipeline si hay vulnerabilidades con parche disponible
+    ignore-unfixed: true   # Ignora vulnerabilidades sin parche publicado (no corregibles localmente)
 ```
 
-Los resultados se suben automáticamente a la pestaña **Security** del repositorio GitHub (formato SARIF).
+Los resultados se suben automáticamente a la pestaña **Security** del repositorio GitHub (formato SARIF) con `if: always()` — el SARIF se sube incluso si Trivy falla.
 
 ---
 
