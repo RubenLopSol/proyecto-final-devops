@@ -23,16 +23,20 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # lint-and-test — DISABLED
+  # NOTE: lint-and-test is intentionally disabled.
   #
-  # This job ran pnpm lint, pnpm typecheck and pnpm test against the openpanel/
-  # directory. It was disabled because openpanel is upstream source code that
-  # this project deploys but does not develop. The upstream codebase has
-  # pre-existing lint and formatting issues that are not the responsibility of
-  # this DevOps project to fix.
+  # This is a DevOps project — its purpose is to build, ship, and run the
+  # openpanel application reliably, not to maintain its source code.
+  # Linting, type checking, and testing the app code is the responsibility
+  # of the application team, not the infrastructure pipeline.
   #
-  # To re-enable: uncomment the block below and remove the leading '# ' from
-  # each line. Make sure the upstream code passes biome check first.
+  # The CI here focuses on what actually matters for DevOps:
+  #   - Are the Kubernetes manifests valid and safe? (validate-infra)
+  #   - Are there any secrets accidentally committed? (secret-scan)
+  #   - Do the Docker images build and pass security scanning? (ci-build-publish)
+  #
+  # If this project ever takes ownership of the app code, uncomment the job
+  # below and make sure the upstream code passes biome check first.
   # ---------------------------------------------------------------------------
   # lint-and-test:
   #   name: Lint & Test (App)
