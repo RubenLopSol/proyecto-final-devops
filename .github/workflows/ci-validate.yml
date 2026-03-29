@@ -145,13 +145,13 @@ jobs:
             --config .kube-linter.yaml 
 
       - name: Hadolint - API Dockerfile
-        run: hadolint openpanel/apps/api/Dockerfile 
+        run: hadolint --failure-threshold error openpanel/apps/api/Dockerfile
 
       - name: Hadolint - Start Dockerfile
-        run: hadolint openpanel/apps/start/Dockerfile 
+        run: hadolint --failure-threshold error openpanel/apps/start/Dockerfile
 
       - name: Hadolint - Worker Dockerfile
-        run: hadolint openpanel/apps/worker/Dockerfile 
+        run: hadolint --failure-threshold error openpanel/apps/worker/Dockerfile
 
       - name: kubectl dry-run validation
         run: |
