@@ -12,8 +12,7 @@ server:
   ingress:
     enabled: true
     ingressClassName: nginx
-    hosts:
-      - argocd.local
+    hostname: argocd.local
 
   resources:
     requests:

@@ -4,13 +4,15 @@ kind: Kustomization
 namespace: backup
 
 resources:
-  # MinIO
+  # MinIO — object storage backend for Velero
   - minio/pvc.yaml
   - minio/deployment.yaml
   - minio/service.yaml
-  # Velero
-  - velero/backup-location.yaml
-  - velero/schedule.yaml
+  # NOTE: velero/backup-location.yaml and velero/schedule.yaml require the
+  # Velero operator to be pre-installed (run: velero install ...).
+  # Apply them manually after Velero is installed:
+  #   kubectl apply -f k8s/base/backup/velero/backup-location.yaml
+  #   kubectl apply -f k8s/base/backup/velero/schedule.yaml
 
 commonLabels:
   project: openpanel-backup

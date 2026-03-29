@@ -61,7 +61,7 @@ jobs:
         run: pnpm lint
 
       - name: Type check
-        run: pnpm type-check
+        run: pnpm typecheck
 
       - name: Run tests
         run: pnpm test
@@ -139,9 +139,9 @@ jobs:
 
       - name: kubectl dry-run validation
         run: |
-          for f in $(find k8s/base -name '*.yaml' -not -name 'kustomization.yaml'); do
+          for f in $(find k8s/base -name '*.yaml' -not -name 'kustomization.yaml' -not -path '*/velero/*'); do
             echo "Validating: $f"
-            kubectl apply --dry-run=client -f "$f" 2>&1 
+            kubectl apply --dry-run=client -f "$f" 2>&1
           done
 
   secret-scan:
