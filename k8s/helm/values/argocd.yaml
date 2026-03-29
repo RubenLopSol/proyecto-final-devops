@@ -1,0 +1,55 @@
+# =============================================================================
+# ArgoCD — Helm values
+# Chart: argo/argo-cd
+# Version: 7.7.0
+# =============================================================================
+
+server:
+  # TLS is terminated at the Ingress (ingress-nginx).
+  # For production with cert-manager, set insecure: false and configure TLS.
+  insecure: true
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - argocd.local
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+configs:
+  params:
+    server.insecure: "true"
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

@@ -19,9 +19,13 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9363"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        fsGroup: 101
       containers:
         - name: clickhouse
-          image: clickhouse/clickhouse-server:latest
+          image: clickhouse/clickhouse-server:24.12
           ports:
             - containerPort: 8123
               name: http
@@ -61,6 +65,11 @@ spec:
               port: 8123
             initialDelaySeconds: 10
             periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - name: clickhouse-data
               mountPath: /var/lib/clickhouse

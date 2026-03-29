@@ -58,7 +58,7 @@ additionalPrometheusRulesMap:
               severity: critical
             annotations:
               summary: "Service {{ $labels.job }} is down"
-              description: "{{ $labels.job }} ha estado caído más de 2 minutos."
+              description: "{{ $labels.job }} has been unreachable for more than 2 minutes."
 
           - alert: HighErrorRate
             expr: >
@@ -71,7 +71,7 @@ additionalPrometheusRulesMap:
               severity: critical
             annotations:
               summary: "High error rate on {{ $labels.job }}"
-              description: "Tasa de error por encima del 5% durante 5 minutos."
+              description: "Error rate above 5% for more than 5 minutes."
 
           - alert: HighMemoryUsage
             expr: >
@@ -84,7 +84,7 @@ additionalPrometheusRulesMap:
               severity: warning
             annotations:
               summary: "High memory usage on {{ $labels.pod }}"
-              description: "Uso de memoria por encima del 90% del límite."
+              description: "Memory usage above 90% of the configured limit."
 
           - alert: DatabaseDown
             expr: pg_up == 0 or redis_up == 0
@@ -93,7 +93,7 @@ additionalPrometheusRulesMap:
               severity: critical
             annotations:
               summary: "Database {{ $labels.job }} is down"
-              description: "Base de datos no accesible durante 1 minuto."
+              description: "Database unreachable for more than 1 minute."
 
 # ----------------------------------------------------------------------------
 # Grafana
@@ -150,7 +150,40 @@ grafana:
 # AlertManager
 # ----------------------------------------------------------------------------
 alertmanager:
-  enabled: false
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname', 'namespace', 'severity']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+        - matchers:
+            - severity = critical
+          receiver: 'null'
+          continue: false
+    inhibit_rules:
+      - source_matchers:
+          - severity = critical
+        target_matchers:
+          - severity = warning
+        equal: ['alertname', 'namespace']
+    receivers:
+      # 'null' receiver: alerts are evaluated and routed but not forwarded.
+      # Replace with a real integration for production:
+      #   slack_configs, email_configs, pagerduty_configs, webhook_configs
+      - name: 'null'
 
 # ----------------------------------------------------------------------------
 # Node Exporter (métricas del nodo)

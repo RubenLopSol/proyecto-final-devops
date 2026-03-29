@@ -1,0 +1,159 @@
+name: CI-Lint-Test-Validate
+
+permissions: read-all
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/openpanel
+
+jobs:
+  lint-and-test:
+    name: Lint & Test (App)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./openpanel
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "store=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Run tests
+        run: pnpm test
+
+  validate-infra:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    env:
+      KUBECTL_VERSION: "v1.28.0"       # Kubernetes CLI
+      KUSTOMIZE_VERSION: "v5.3.0"      # Kubernetes manifest templating
+      KUBECONFORM_VERSION: "v0.6.4"    # Kubernetes manifest schema validator
+      KUBE_LINTER_VERSION: "v0.6.4"    # Kubernetes manifest best-practices linter
+      HADOLINT_VERSION: "v2.12.0"      # Dockerfile linter
+      K8S_VERSION: "1.28.0"
+      
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Install kustomize
+        run: |
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${{ env.KUSTOMIZE_VERSION }}/kustomize_${{ env.KUSTOMIZE_VERSION }}_linux_amd64.tar.gz" | tar xz
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${{ env.KUBECONFORM_VERSION }}/kubeconform-linux-amd64.tar.gz" | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Install kube-linter
+        run: |
+          curl -sSL "https://github.com/stackrox/kube-linter/releases/download/${{ env.KUBE_LINTER_VERSION }}/kube-linter-linux.tar.gz" | tar xz
+          sudo mv kube-linter /usr/local/bin/
+
+      - name: Install hadolint
+        run: |
+          curl -sSL "https://github.com/hadolint/hadolint/releases/download/${{ env.HADOLINT_VERSION }}/hadolint-Linux-x86_64" -o hadolint
+          chmod +x hadolint
+          sudo mv hadolint /usr/local/bin/
+
+      - name: Kustomize build
+        run: kustomize build k8s/overlays/local > /tmp/rendered-manifests.yaml
+
+      - name: Kubeconform validation
+        run: |
+          kubeconform \
+            -summary \
+            -strict \
+            -ignore-missing-schemas \
+            -kubernetes-version ${K8S_VERSION} \
+            /tmp/rendered-manifests.yaml
+
+      - name: Kube-linter checks
+        run: |
+          kube-linter lint /tmp/rendered-manifests.yaml \
+            --config .kube-linter.yaml 
+
+      - name: Hadolint - API Dockerfile
+        run: hadolint openpanel/apps/api/Dockerfile 
+
+      - name: Hadolint - Start Dockerfile
+        run: hadolint openpanel/apps/start/Dockerfile 
+
+      - name: Hadolint - Worker Dockerfile
+        run: hadolint openpanel/apps/worker/Dockerfile 
+
+      - name: kubectl dry-run validation
+        run: |
+          for f in $(find k8s/base -name '*.yaml' -not -name 'kustomization.yaml'); do
+            echo "Validating: $f"
+            kubectl apply --dry-run=client -f "$f" 2>&1 
+          done
+
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -24,8 +24,8 @@ SCRIPTS_DIR    = ./scripts
 export GH_TOKEN = $(GITHUB_TOKEN)
 
 .PHONY: help all setup-github docker-login cluster dns argocd argocd-apps \
-        sealed-secrets app observability backup status stop destroy \
-        blue-green backup-run logs open
+        sealed-secrets app observability backup status stop restart destroy \
+        blue-green backup-run logs open clean clean-all
 
 # ----------------------------------------------------------------------------
 # Default — muestra ayuda
@@ -40,8 +40,8 @@ help:
 	@echo "  Paso a paso:"
 	@echo "    make setup-github     Crea el repo en GitHub y configura CI/CD"
 	@echo "    make docker-login     Login en GHCR"
-	@echo "    make cluster          Levanta Minikube con addons y namespaces"
-	@echo "    make dns              Configura /etc/hosts con las IPs del cluster"
+	@echo "    make cluster          Levanta Minikube, namespaces y configura /etc/hosts"
+	@echo "    make dns              Refresca /etc/hosts (útil si Minikube cambia de IP)"
 	@echo "    make argocd           Instala ArgoCD en el cluster"
 	@echo "    make sealed-secrets   Instala el controller de Sealed Secrets"
 	@echo "    make argocd-apps      Aplica AppProject y Applications en ArgoCD"
@@ -58,7 +58,12 @@ help:
 	@echo ""
 	@echo "  Cluster:"
 	@echo "    make stop             Para Minikube"
+	@echo "    make restart          Para y vuelve a arrancar Minikube"
 	@echo "    make destroy          Elimina el cluster completamente"
+	@echo ""
+	@echo "  Limpieza:"
+	@echo "    make clean            Para y elimina Minikube + limpia /etc/hosts"
+	@echo "    make clean-all        clean + elimina credentials y repos de Helm"
 	@echo ""
 	@echo "  Variables:"
 	@echo "    GITHUB_USER    Usuario de GitHub (default: $(GITHUB_USER))"
@@ -71,7 +76,7 @@ help:
 # ----------------------------------------------------------------------------
 # Todo de una vez
 # ----------------------------------------------------------------------------
-all: setup-github docker-login cluster dns argocd sealed-secrets argocd-apps open
+all: setup-github docker-login cluster argocd sealed-secrets argocd-apps open
 	@echo ""
 	@echo "=========================================="
 	@echo "  Instalación completa finalizada"
@@ -156,8 +161,33 @@ dns:
 stop:
 	minikube stop -p $(PROFILE)
 
+restart:
+	minikube stop -p $(PROFILE) || true
+	minikube start -p $(PROFILE)
+
 destroy:
 	minikube delete -p $(PROFILE)
+
+# ----------------------------------------------------------------------------
+# Cleanup
+# ----------------------------------------------------------------------------
+# Stops and deletes the Minikube cluster, removes DNS entries from /etc/hosts
+clean:
+	@echo "=== Stopping and deleting Minikube cluster '$(PROFILE)' ==="
+	@minikube stop -p $(PROFILE) 2>/dev/null || true
+	@minikube delete -p $(PROFILE) 2>/dev/null || true
+	@echo "=== Removing DNS entries from /etc/hosts ==="
+	@sudo sed -i '/openpanel\.local/d' /etc/hosts 2>/dev/null || true
+	@echo "=== Cluster removed and DNS cleaned up ==="
+
+# Runs 'clean' and also removes generated credentials and Helm repos
+clean-all: clean
+	@echo "=== Removing Velero credentials file ==="
+	@rm -f credentials-velero
+	@echo "=== Removing Helm repos added by this project ==="
+	@helm repo remove argo 2>/dev/null || true
+	@helm repo remove sealed-secrets 2>/dev/null || true
+	@echo "=== Full cleanup complete ==="
 
 # ----------------------------------------------------------------------------
 # ArgoCD
@@ -176,7 +206,7 @@ argocd-apps:
 sealed-secrets:
 	helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
 	helm repo update
-	helm install sealed-secrets sealed-secrets/sealed-secrets \
+	helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets \
 		--namespace sealed-secrets --create-namespace
 	kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=sealed-secrets \
 		-n sealed-secrets --timeout=120s
