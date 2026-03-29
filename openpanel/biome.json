@@ -12,7 +12,16 @@
       "coverage",
       "op.js",
       "op1.js",
-      "*.css"
+      "*.css",
+      "apps/api/scripts/mock-big.json",
+      "apps/public/.source",
+      "scripts/add-internal-links.mjs",
+      "apps/public/components/sections/supporter-perks.tsx",
+      "apps/public/src/app/(content)/compare",
+      "apps/start/src/components/ui/data-table/data-table-slider-filter.tsx",
+      "apps/start/src/components/ui/slider.tsx",
+      "apps/start/src/hooks/use-dashed-stroke.tsx",
+      "packages/email/src/unsubscribe.ts"
     ]
   },
   "linter": {

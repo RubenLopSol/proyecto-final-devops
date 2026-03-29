@@ -28,12 +28,23 @@ spec:
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
           volumeMounts:
             - name: postgres-run
               mountPath: /var/run/postgresql
       containers:
         - name: postgres-exporter
           image: prometheuscommunity/postgres-exporter:v0.15.0
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
           ports:
             - containerPort: 9187
               name: metrics
