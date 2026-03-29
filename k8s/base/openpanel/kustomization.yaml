@@ -13,6 +13,8 @@ resources:
   # Dashboard
   - start-deployment.yaml
   - start-service.yaml
+  # DB migrations (runs as ArgoCD PreSync hook before every deploy)
+  - migrate-job.yaml
   # Worker
   - worker-deployment.yaml
   # PostgreSQL

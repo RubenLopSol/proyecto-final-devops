@@ -24,8 +24,8 @@ SCRIPTS_DIR    = ./scripts
 export GH_TOKEN = $(GITHUB_TOKEN)
 
 .PHONY: help all setup-github docker-login cluster dns argocd argocd-apps \
-        sealed-secrets app observability backup status stop restart destroy \
-        blue-green backup-run logs open clean clean-all
+        sealed-secrets reseal-secrets app observability backup status stop \
+        restart destroy blue-green backup-run logs open clean clean-all
 
 # ----------------------------------------------------------------------------
 # Default — muestra ayuda
@@ -43,7 +43,8 @@ help:
 	@echo "    make cluster          Levanta Minikube, namespaces y configura /etc/hosts"
 	@echo "    make dns              Refresca /etc/hosts (útil si Minikube cambia de IP)"
 	@echo "    make argocd           Instala ArgoCD en el cluster"
-	@echo "    make sealed-secrets   Instala el controller de Sealed Secrets"
+	@echo "    make sealed-secrets   Instala el controller de Sealed Secrets y re-sella los secrets"
+	@echo "    make reseal-secrets   Re-sella todos los secrets con la clave del cluster actual"
 	@echo "    make argocd-apps      Aplica AppProject y Applications en ArgoCD"
 	@echo "    make app              Despliega la aplicación via kustomize (manual)"
 	@echo "    make observability    Despliega Prometheus, Grafana, Loki, Tempo (manual)"
@@ -210,7 +211,96 @@ sealed-secrets:
 		--namespace sealed-secrets --create-namespace
 	kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=sealed-secrets \
 		-n sealed-secrets --timeout=120s
+	@$(MAKE) reseal-secrets
 	kubectl apply -f k8s/argocd/sealed-secrets/
+
+# Re-seal all secrets using the current cluster's key.
+# Required whenever you start a fresh Minikube cluster because each cluster
+# generates a new Sealed Secrets key pair and cannot decrypt secrets sealed
+# by a previous cluster.
+#
+# Usage:
+#   make reseal-secrets \
+#     POSTGRES_PASSWORD=xxx \
+#     REDIS_PASSWORD=xxx \
+#     CLICKHOUSE_PASSWORD=xxx \
+#     API_SECRET=xxx \
+#     GRAFANA_PASSWORD=xxx \
+#     MINIO_PASSWORD=xxx
+#
+# Sensible defaults are provided so `make all` works out of the box for
+# local development. Override them for production.
+POSTGRES_USER      ?= postgres
+POSTGRES_PASSWORD  ?= postgres
+REDIS_PASSWORD     ?= redis
+CLICKHOUSE_USER    ?= clickhouse
+CLICKHOUSE_PASSWORD ?= clickhouse
+API_SECRET         ?= $(shell openssl rand -hex 32)
+GRAFANA_USER       ?= admin
+GRAFANA_PASSWORD   ?= admin
+MINIO_USER         ?= minio
+MINIO_PASSWORD     ?= minio123
+
+reseal-secrets:
+	@echo "=== Re-sealing secrets with current cluster key ==="
+	@kubeseal --fetch-cert \
+		--controller-namespace sealed-secrets \
+		--controller-name sealed-secrets \
+		> /tmp/sealed-secrets-cert.pem
+
+	@# postgres-credentials
+	@kubectl create secret generic postgres-credentials \
+		--from-literal=POSTGRES_USER=$(POSTGRES_USER) \
+		--from-literal=POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) \
+		--namespace openpanel --dry-run=client -o yaml | \
+	kubeseal --cert /tmp/sealed-secrets-cert.pem --format yaml \
+		> k8s/argocd/sealed-secrets/postgres-credentials.yaml
+
+	@# redis-credentials
+	@kubectl create secret generic redis-credentials \
+		--from-literal=REDIS_PASSWORD=$(REDIS_PASSWORD) \
+		--namespace openpanel --dry-run=client -o yaml | \
+	kubeseal --cert /tmp/sealed-secrets-cert.pem --format yaml \
+		> k8s/argocd/sealed-secrets/redis-credentials.yaml
+
+	@# clickhouse-credentials
+	@kubectl create secret generic clickhouse-credentials \
+		--from-literal=CLICKHOUSE_USER=$(CLICKHOUSE_USER) \
+		--from-literal=CLICKHOUSE_PASSWORD=$(CLICKHOUSE_PASSWORD) \
+		--namespace openpanel --dry-run=client -o yaml | \
+	kubeseal --cert /tmp/sealed-secrets-cert.pem --format yaml \
+		> k8s/argocd/sealed-secrets/clickhouse-credentials.yaml
+
+	@# openpanel-secrets (composite — built from individual values)
+	@# DATABASE_URL_DIRECT is required by Prisma schema; same as DATABASE_URL for local single-node
+	@kubectl create secret generic openpanel-secrets \
+		--from-literal=DATABASE_URL=postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.openpanel.svc.cluster.local:5432/openpanel \
+		--from-literal=DATABASE_URL_DIRECT=postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.openpanel.svc.cluster.local:5432/openpanel \
+		--from-literal=CLICKHOUSE_URL=http://$(CLICKHOUSE_USER):$(CLICKHOUSE_PASSWORD)@clickhouse.openpanel.svc.cluster.local:8123 \
+		--from-literal=REDIS_URL=redis://:$(REDIS_PASSWORD)@redis.openpanel.svc.cluster.local:6379 \
+		--from-literal=API_SECRET=$(API_SECRET) \
+		--namespace openpanel --dry-run=client -o yaml | \
+	kubeseal --cert /tmp/sealed-secrets-cert.pem --format yaml \
+		> k8s/argocd/sealed-secrets/openpanel-secrets.yaml
+
+	@# grafana-admin-credentials
+	@kubectl create secret generic grafana-admin-credentials \
+		--from-literal=admin-user=$(GRAFANA_USER) \
+		--from-literal=admin-password=$(GRAFANA_PASSWORD) \
+		--namespace observability --dry-run=client -o yaml | \
+	kubeseal --cert /tmp/sealed-secrets-cert.pem --format yaml \
+		> k8s/argocd/sealed-secrets/grafana-admin-credentials.yaml
+
+	@# minio-credentials
+	@kubectl create secret generic minio-credentials \
+		--from-literal=MINIO_ROOT_USER=$(MINIO_USER) \
+		--from-literal=MINIO_ROOT_PASSWORD=$(MINIO_PASSWORD) \
+		--namespace backup --dry-run=client -o yaml | \
+	kubeseal --cert /tmp/sealed-secrets-cert.pem --format yaml \
+		> k8s/argocd/sealed-secrets/minio-credentials.yaml
+
+	@rm -f /tmp/sealed-secrets-cert.pem
+	@echo "=== All secrets re-sealed — ready to apply ==="
 
 # ----------------------------------------------------------------------------
 # Despliegue manual (alternativa a ArgoCD)

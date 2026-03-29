@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openpanel-migrate
+  namespace: openpanel
+  labels:
+    app: openpanel-migrate
+  annotations:
+    # Re-run this job whenever the image tag changes (ArgoCD hook)
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: migrate
+          image: ghcr.io/rubenlopsol/openpanel-api:main-aef4b94
+          # Run prisma migrate deploy from the db package directory
+          command:
+            - node_modules/.bin/prisma
+            - migrate
+            - deploy
+          workingDir: /app/packages/db
+          env:
+            - name: HOME
+              value: /tmp
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: DATABASE_URL
+            - name: DATABASE_URL_DIRECT
+              valueFrom:
+                secretKeyRef:
+                  name: openpanel-secrets
+                  key: DATABASE_URL_DIRECT
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
