@@ -6,10 +6,7 @@ const SECRET =
   process.env.SECRET ||
   'default-secret-change-in-production';
 
-export function generateUnsubscribeToken(
-  email: string,
-  category: string,
-): string {
+export function generateUnsubscribeToken(email: string, category: string): string {
   const data = `${email}:${category}`;
   return createHmac('sha256', SECRET).update(data).digest('hex');
 }

@@ -1,5 +1,5 @@
-import { FeatureHero } from '@/app/(content)/features/[slug]/_components/feature-hero';
 import { CtaBanner } from '@/app/(home)/_sections/cta-banner';
+import { FeatureHero } from '@/app/(content)/features/[slug]/_components/feature-hero';
 import { Section, SectionHeader } from '@/components/section';
 import { WindowImage } from '@/components/window-image';
 import { url } from '@/lib/layout.shared';

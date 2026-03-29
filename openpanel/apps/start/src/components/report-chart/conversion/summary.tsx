@@ -1,4 +1,6 @@
 import type { RouterOutputs } from '@/trpc/client';
+import type React from 'react';
+import { useMemo } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -8,18 +10,13 @@ import {
   Target,
   Trophy,
 } from 'lucide-react';
-import type React from 'react';
-import { useMemo } from 'react';
 
 import { useNumber } from '@/hooks/use-numer-formatter';
 import { formatDate } from '@/utils/date';
 import { average, sum } from '@openpanel/common';
 import { useReportChartContext } from '../context';
 
-const SUMMARY_ICONS: Record<
-  string,
-  React.ComponentType<{ className?: string }>
-> = {
+const SUMMARY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Flow: GitBranch,
   'Average conversion rate': Percent,
   'Total conversions': Target,

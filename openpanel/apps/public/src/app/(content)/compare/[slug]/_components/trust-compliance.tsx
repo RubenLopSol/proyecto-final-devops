@@ -1,7 +1,7 @@
 import { FeatureCard } from '@/components/feature-card';
 import { Section, SectionHeader } from '@/components/section';
-import type { CompareTrustCompliance } from '@/lib/compare';
-import { MapPinIcon, ServerIcon, ShieldIcon } from 'lucide-react';
+import { CompareTrustCompliance } from '@/lib/compare';
+import { ShieldIcon, MapPinIcon, ServerIcon } from 'lucide-react';
 import { CheckIcon, XIcon } from 'lucide-react';
 
 interface TrustComplianceProps {
@@ -107,3 +107,4 @@ export function TrustCompliance({ trust }: TrustComplianceProps) {
     </Section>
   );
 }
+

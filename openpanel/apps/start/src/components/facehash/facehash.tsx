@@ -371,19 +371,17 @@ export const Facehash = React.forwardRef<HTMLDivElement, FacehashProps>(
               ? 'group-hover:[transform:var(--facehash-hover-transform)]'
               : undefined
           }
-          style={
-            {
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform,
-              transition: interactive ? 'transform 0.2s ease-out' : undefined,
-              transformStyle: 'preserve-3d',
-              '--facehash-hover-transform': hoverTransform,
-            } as React.CSSProperties
-          }
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform,
+            transition: interactive ? 'transform 0.2s ease-out' : undefined,
+            transformStyle: 'preserve-3d',
+            '--facehash-hover-transform': hoverTransform,
+          } as React.CSSProperties}
         >
           {/* Face SVG */}
           <FaceComponent

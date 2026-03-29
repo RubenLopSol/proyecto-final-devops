@@ -30,9 +30,7 @@ export function HowItWorks({ data }: HowItWorksProps) {
               )}
             </div>
             <div className="flex-1 pt-1 min-w-0 pb-8">
-              <h3 className="font-semibold text-foreground mb-1">
-                {step.title}
-              </h3>
+              <h3 className="font-semibold text-foreground mb-1">{step.title}</h3>
               <p className={cn('text-muted-foreground text-sm')}>
                 {step.description}
               </p>

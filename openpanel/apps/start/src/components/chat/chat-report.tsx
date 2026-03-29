@@ -1,9 +1,9 @@
 import { pushModal } from '@/modals';
 import type {
+  IReport,
   IChartRange,
   IChartType,
   IInterval,
-  IReport,
 } from '@openpanel/validation';
 import { SaveIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -16,10 +16,7 @@ import { Button } from '../ui/button';
 export function ChatReport({
   lazy,
   ...props
-}: {
-  report: IReport & { startDate: string; endDate: string };
-  lazy: boolean;
-}) {
+}: { report: IReport & { startDate: string; endDate: string }; lazy: boolean }) {
   const [chartType, setChartType] = useState<IChartType>(
     props.report.chartType,
   );

@@ -30,8 +30,8 @@ export class ConversionService {
     const funnelGroup = funnelOptions?.funnelGroup;
     const funnelWindow = funnelOptions?.funnelWindow ?? 24;
     const group = funnelGroup === 'profile_id' ? 'profile_id' : 'session_id';
-    const breakdownExpressions = breakdowns.map((b) =>
-      getSelectPropertyKey(b.name),
+    const breakdownExpressions = breakdowns.map(
+      (b) => getSelectPropertyKey(b.name),
     );
     const breakdownSelects = breakdownExpressions.map(
       (expr, index) => `${expr} as b_${index}`,

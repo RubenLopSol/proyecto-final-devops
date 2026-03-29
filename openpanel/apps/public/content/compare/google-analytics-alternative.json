@@ -9,7 +9,12 @@
   "hero": {
     "heading": "Google Analytics alternative",
     "subheading": "OpenPanel is an open-source, privacy-first alternative to Google Analytics. Get both web analytics and product analytics in one tool, without cookies, consent banners, or sending your data to Google.",
-    "badges": ["Open-source", "Cookie-free", "EU-only hosting", "Self-hostable"]
+    "badges": [
+      "Open-source",
+      "Cookie-free",
+      "EU-only hosting",
+      "Self-hostable"
+    ]
   },
   "competitor": {
     "name": "Google Analytics",

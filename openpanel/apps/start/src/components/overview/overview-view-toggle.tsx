@@ -29,9 +29,7 @@ export function OverviewViewToggle({
         onClick={() => {
           setView(view === 'table' ? 'chart' : 'table');
         }}
-        title={
-          view === 'table' ? 'Switch to chart view' : 'Switch to table view'
-        }
+        title={view === 'table' ? 'Switch to chart view' : 'Switch to table view'}
       >
         {view === 'table' ? (
           <LineChartIcon size={16} />
@@ -53,3 +51,4 @@ export function useOverviewView() {
 
   return [view, setView] as const;
 }
+

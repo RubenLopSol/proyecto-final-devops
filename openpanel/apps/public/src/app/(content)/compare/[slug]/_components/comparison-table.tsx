@@ -1,10 +1,7 @@
 import { Section, SectionHeader } from '@/components/section';
-import type {
-  CompareFeatureComparison,
-  CompareHighlights,
-} from '@/lib/compare';
-import { cn } from '@/lib/utils';
+import { CompareHighlights, CompareFeatureComparison } from '@/lib/compare';
 import { CheckIcon, XIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ComparisonTableProps {
   highlights: CompareHighlights;
@@ -70,9 +67,7 @@ export function ComparisonTable({
               <tr className="border-b bg-muted/30">
                 <th className="text-left p-4 font-semibold">Feature</th>
                 <th className="text-left p-4 font-semibold">OpenPanel</th>
-                <th className="text-left p-4 font-semibold">
-                  {competitorName}
-                </th>
+                <th className="text-left p-4 font-semibold">{competitorName}</th>
               </tr>
             </thead>
             <tbody>
@@ -81,7 +76,7 @@ export function ComparisonTable({
                   key={row.feature}
                   className={cn(
                     'border-b last:border-b-0',
-                    index % 2 === 0 ? 'bg-background' : 'bg-muted/20',
+                    index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                   )}
                 >
                   <td className="p-4 font-medium">{row.feature}</td>
@@ -111,3 +106,4 @@ export function ComparisonTable({
     </Section>
   );
 }
+

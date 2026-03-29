@@ -9,7 +9,12 @@
   "hero": {
     "heading": "Fathom Alternative",
     "subheading": "Love Fathom's simplicity and privacy focus? OpenPanel adds product analytics capabilities - funnels, cohorts, retention, and user identification - plus self-hosting options and a free tier.",
-    "badges": ["Open-source", "Privacy-first", "Self-hostable", "Free Tier"]
+    "badges": [
+      "Open-source",
+      "Privacy-first",
+      "Self-hostable",
+      "Free Tier"
+    ]
   },
   "competitor": {
     "name": "Fathom Analytics",

@@ -1,8 +1,8 @@
 import { FaqItem, Faqs } from '@/components/faq';
 import { Section, SectionHeader } from '@/components/section';
-import type { CompareFaqs } from '@/lib/compare';
-import { url } from '@/lib/layout.shared';
+import { CompareFaqs } from '@/lib/compare';
 import Script from 'next/script';
+import { url } from '@/lib/layout.shared';
 
 interface CompareFaqProps {
   faqs: CompareFaqs;
@@ -49,3 +49,4 @@ export function CompareFaq({ faqs, pageUrl }: CompareFaqProps) {
     </Section>
   );
 }
+

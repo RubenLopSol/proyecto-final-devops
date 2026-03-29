@@ -1,7 +1,7 @@
 import { Section, SectionHeader } from '@/components/section';
-import type { CompareHighlight } from '@/lib/compare';
+import { CompareHighlight } from '@/lib/compare';
+import { CheckIcon, XIcon, MinusIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CheckIcon, MinusIcon, XIcon } from 'lucide-react';
 
 interface HighlightsGridProps {
   highlights: CompareHighlight[];
@@ -33,7 +33,7 @@ export function HighlightsGrid({ highlights }: HighlightsGridProps) {
               key={highlight.label}
               className={cn(
                 'grid md:grid-cols-3 gap-4 p-6',
-                index % 2 === 0 ? 'bg-muted/30' : 'bg-background',
+                index % 2 === 0 ? 'bg-muted/30' : 'bg-background'
               )}
             >
               <div className="font-semibold text-sm md:text-base">
@@ -54,3 +54,4 @@ export function HighlightsGrid({ highlights }: HighlightsGridProps) {
     </Section>
   );
 }
+

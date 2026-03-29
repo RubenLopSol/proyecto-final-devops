@@ -1,13 +1,13 @@
 import { Section, SectionHeader } from '@/components/section';
+import { CompareFeatureGroup } from '@/lib/compare';
+import { CheckIcon, XIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import type { CompareFeatureGroup } from '@/lib/compare';
-import { cn } from '@/lib/utils';
-import { CheckIcon, XIcon } from 'lucide-react';
 
 interface FeatureComparisonProps {
   featureGroups: CompareFeatureGroup[];
@@ -47,9 +47,7 @@ export function FeatureComparison({ featureGroups }: FeatureComparisonProps) {
                         key={feature.name}
                         className="grid md:grid-cols-3 gap-4 py-3 border-b last:border-b-0"
                       >
-                        <div className="font-medium text-sm">
-                          {feature.name}
-                        </div>
+                        <div className="font-medium text-sm">{feature.name}</div>
                         <div className="row gap-2 items-center">
                           {renderFeatureValue(feature.openpanel)}
                         </div>
@@ -68,3 +66,4 @@ export function FeatureComparison({ featureGroups }: FeatureComparisonProps) {
     </Section>
   );
 }
+

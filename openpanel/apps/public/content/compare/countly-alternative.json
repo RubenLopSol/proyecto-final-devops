@@ -9,7 +9,12 @@
   "hero": {
     "heading": "Countly Alternative",
     "subheading": "Want Countly's product analytics without the complexity? OpenPanel offers a simpler, more affordable approach to user analytics with self-hosting, mobile SDKs, and modern product analytics - all with transparent pricing.",
-    "badges": ["Open-source", "Simple Pricing", "Lightweight", "MIT License"]
+    "badges": [
+      "Open-source",
+      "Simple Pricing",
+      "Lightweight",
+      "MIT License"
+    ]
   },
   "competitor": {
     "name": "Countly",

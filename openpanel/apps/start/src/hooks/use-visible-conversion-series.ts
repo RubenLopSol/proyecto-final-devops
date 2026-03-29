@@ -32,3 +32,4 @@ export function useVisibleConversionSeries(
     } as const;
   }, [visibleSeries, data.current]);
 }
+

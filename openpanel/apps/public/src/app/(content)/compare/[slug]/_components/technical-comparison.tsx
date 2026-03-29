@@ -1,7 +1,7 @@
 import { Section, SectionHeader } from '@/components/section';
-import type { CompareTechnicalComparison } from '@/lib/compare';
-import { cn } from '@/lib/utils';
+import { CompareTechnicalComparison } from '@/lib/compare';
 import { CheckIcon, XIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface TechnicalComparisonProps {
   technical: CompareTechnicalComparison;
@@ -41,9 +41,7 @@ export function TechnicalComparison({
               <tr className="border-b bg-muted/30">
                 <th className="text-left p-4 font-semibold">Feature</th>
                 <th className="text-left p-4 font-semibold">OpenPanel</th>
-                <th className="text-left p-4 font-semibold">
-                  {competitorName}
-                </th>
+                <th className="text-left p-4 font-semibold">{competitorName}</th>
               </tr>
             </thead>
             <tbody>
@@ -52,7 +50,7 @@ export function TechnicalComparison({
                   key={item.label}
                   className={cn(
                     'border-b last:border-b-0',
-                    index % 2 === 0 ? 'bg-background' : 'bg-muted/20',
+                    index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                   )}
                 >
                   <td className="p-4 font-medium">{item.label}</td>
@@ -76,3 +74,4 @@ export function TechnicalComparison({
     </Section>
   );
 }
+

@@ -3,11 +3,11 @@ import {
   CheckIcon,
   HeartHandshakeIcon,
   MessageSquareIcon,
-  PackageIcon,
   RocketIcon,
   SparklesIcon,
   StarIcon,
   ZapIcon,
+  PackageIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -127,3 +127,4 @@ export function SupporterPerks({ className }: { className?: string }) {
     </div>
   );
 }
+

@@ -2,14 +2,14 @@ import { useTRPC } from '@/integrations/trpc/react';
 import type { RouterOutputs } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
 
-import { useVisibleFunnelBreakdowns } from '@/hooks/use-visible-funnel-breakdowns';
 import { AspectContainer } from '../aspect-container';
 import { ReportChartEmpty } from '../common/empty';
 import { ReportChartError } from '../common/error';
 import { ReportChartLoading } from '../common/loading';
 import { useReportChartContext } from '../context';
-import { BreakdownList } from './breakdown-list';
+import { useVisibleFunnelBreakdowns } from '@/hooks/use-visible-funnel-breakdowns';
 import { Chart, Summary } from './chart';
+import { BreakdownList } from './breakdown-list';
 
 export function ReportFunnelChart() {
   const { isLazyLoading, report, shareId } = useReportChartContext();

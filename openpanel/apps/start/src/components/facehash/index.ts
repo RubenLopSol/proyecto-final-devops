@@ -2,12 +2,7 @@
 // Primary Export - This is what you want
 // ============================================================================
 
-export type {
-  FacehashProps,
-  Intensity3D,
-  Variant,
-  ColorScheme,
-} from './facehash';
+export type { FacehashProps, Intensity3D, Variant, ColorScheme } from './facehash';
 export {
   Facehash,
   DEFAULT_COLORS,
