@@ -101,4 +101,3 @@ export async function lookupByClient() {
     highlightClientId: selectedClient.id,
   });
 }
-

@@ -83,9 +83,7 @@ export default async function ComparePage({
 
   // Build ToC items
   const tocItems = [
-    ...(data.overview
-      ? [{ id: 'overview', label: data.overview.title }]
-      : []),
+    ...(data.overview ? [{ id: 'overview', label: data.overview.title }] : []),
     { id: 'who-should-choose', label: data.summary_comparison.title },
     { id: 'comparison', label: data.highlights.title },
     { id: 'features', label: data.feature_comparison.title },

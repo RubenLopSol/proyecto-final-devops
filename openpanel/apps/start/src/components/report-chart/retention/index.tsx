@@ -17,7 +17,8 @@ export function ReportRetentionChart() {
   const isEnabled =
     firstEvent.length > 0 && secondEvent.length > 0 && !isLazyLoading;
 
-  const retentionOptions = report.options?.type === 'retention' ? report.options : undefined;
+  const retentionOptions =
+    report.options?.type === 'retention' ? report.options : undefined;
   const criteria = retentionOptions?.criteria ?? 'on_or_after';
 
   const trpc = useTRPC();

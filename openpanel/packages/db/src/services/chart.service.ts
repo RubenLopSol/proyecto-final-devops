@@ -3,9 +3,9 @@ import sqlstring from 'sqlstring';
 import { DateTime, stripLeadingAndTrailingSlashes } from '@openpanel/common';
 import type {
   IChartEventFilter,
-  IReportInput,
   IChartRange,
   IGetChartDataInput,
+  IReportInput,
 } from '@openpanel/validation';
 
 import { TABLE_NAMES, formatClickhouseDate } from '../clickhouse/client';

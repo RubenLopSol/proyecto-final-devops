@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { OPENPANEL_DESCRIPTION, OPENPANEL_NAME } from './openpanel-brand';
 import { url as baseUrl } from './layout.shared';
+import { OPENPANEL_DESCRIPTION, OPENPANEL_NAME } from './openpanel-brand';
 
 const siteName = OPENPANEL_NAME;
 const defaultDescription = OPENPANEL_DESCRIPTION;

@@ -274,9 +274,7 @@
           "Android",
           "Flutter"
         ],
-        "competitor": [
-          "JavaScript (web only)"
-        ],
+        "competitor": ["JavaScript (web only)"],
         "notes": null
       },
       {

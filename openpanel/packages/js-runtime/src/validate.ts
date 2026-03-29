@@ -1,15 +1,15 @@
 import { parse } from '@babel/parser';
 
 import {
-  ALLOWED_GLOBALS,
-  ALLOWED_INSTANCE_METHODS,
-  ALLOWED_METHODS,
-} from './constants';
-import {
   collectDeclaredIdentifiers,
   isPropertyKey,
   walkNode,
 } from './ast-walker';
+import {
+  ALLOWED_GLOBALS,
+  ALLOWED_INSTANCE_METHODS,
+  ALLOWED_METHODS,
+} from './constants';
 
 /**
  * Validates that a JavaScript function is safe to execute

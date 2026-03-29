@@ -23,7 +23,7 @@ export type ConcreteSeries = {
   definitionId: string; // ID of the SeriesDefinition this came from
   definitionIndex: number; // Index in the original series array (for A, B, C references)
   name: string[]; // Display name parts: ["Session Start", "Chrome"] or ["Formula 1"]
-  
+
   // Context for Drill-down / Profiles
   // This contains everything needed to query 'who are these users?'
   context: {
@@ -82,4 +82,3 @@ export type ChartResponse = {
     max: number;
   };
 };
-

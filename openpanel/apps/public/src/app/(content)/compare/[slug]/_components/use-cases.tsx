@@ -1,5 +1,5 @@
 import { Section, SectionHeader } from '@/components/section';
-import { CompareUseCases } from '@/lib/compare';
+import type { CompareUseCases } from '@/lib/compare';
 
 interface UseCasesProps {
   useCases: CompareUseCases;
@@ -17,7 +17,9 @@ export function UseCases({ useCases }: UseCasesProps) {
         {useCases.items.map((useCase) => (
           <div key={useCase.title} className="col gap-2 p-6 border rounded-2xl">
             <h3 className="font-semibold">{useCase.title}</h3>
-            <p className="text-sm text-muted-foreground">{useCase.description}</p>
+            <p className="text-sm text-muted-foreground">
+              {useCase.description}
+            </p>
           </div>
         ))}
       </div>

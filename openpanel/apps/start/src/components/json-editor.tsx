@@ -1,15 +1,11 @@
 'use client';
 
-import { basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
-import {
-  Compartment,
-  EditorState,
-  type Extension,
-} from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
+import { basicSetup } from 'codemirror';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from './theme-provider';
 
@@ -57,8 +53,7 @@ export function JsonEditor({
         onValidate?.(true);
       } catch (e) {
         setIsValid(false);
-        const errorMsg =
-          e instanceof Error ? e.message : 'Invalid JSON syntax';
+        const errorMsg = e instanceof Error ? e.message : 'Invalid JSON syntax';
         setError(errorMsg);
         onValidate?.(false, errorMsg);
       }
@@ -82,7 +77,9 @@ export function JsonEditor({
 
     const extensions: Extension[] = [
       basicSetup,
-      languageCompartment.of(language === 'javascript' ? [javascript()] : [json()]),
+      languageCompartment.of(
+        language === 'javascript' ? [javascript()] : [json()],
+      ),
       EditorState.tabSize.of(2),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -210,7 +207,8 @@ export function JsonEditor({
       />
       {!isValid && (
         <p className="mt-1 text-sm text-destructive">
-          {error || `Invalid ${language === 'javascript' ? 'JavaScript' : 'JSON'}. Please check your syntax.`}
+          {error ||
+            `Invalid ${language === 'javascript' ? 'JavaScript' : 'JSON'}. Please check your syntax.`}
         </p>
       )}
     </div>

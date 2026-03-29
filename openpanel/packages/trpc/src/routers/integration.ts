@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { BASE_INTEGRATIONS, db } from '@openpanel/db';
 
 import { getSlackInstallUrl } from '@openpanel/integrations/src/slack';
+import { validate as validateJavaScriptTemplate } from '@openpanel/js-runtime';
 import {
   type ISlackConfig,
   zCreateDiscordIntegration,
@@ -12,7 +13,6 @@ import {
 import { getOrganizationAccess } from '../access';
 import { TRPCAccessError, TRPCBadRequestError } from '../errors';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { validate as validateJavaScriptTemplate } from '@openpanel/js-runtime';
 
 export const integrationRouter = createTRPCRouter({
   get: protectedProcedure

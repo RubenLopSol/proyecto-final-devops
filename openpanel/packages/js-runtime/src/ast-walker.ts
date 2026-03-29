@@ -1,4 +1,8 @@
-import { ALLOWED_GLOBALS, ALLOWED_INSTANCE_METHODS, ALLOWED_METHODS } from './constants';
+import {
+  ALLOWED_GLOBALS,
+  ALLOWED_INSTANCE_METHODS,
+  ALLOWED_METHODS,
+} from './constants';
 
 /**
  * Simple recursive AST walker that doesn't require @babel/traverse

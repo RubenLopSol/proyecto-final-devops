@@ -1,6 +1,6 @@
 import { FeatureCard } from '@/components/feature-card';
 import { Section, SectionHeader } from '@/components/section';
-import { CompareSummary } from '@/lib/compare';
+import type { CompareSummary } from '@/lib/compare';
 import { CheckIcon, XIcon } from 'lucide-react';
 
 interface SummaryComparisonProps {
@@ -8,7 +8,10 @@ interface SummaryComparisonProps {
   competitorName: string;
 }
 
-export function SummaryComparison({ summary, competitorName }: SummaryComparisonProps) {
+export function SummaryComparison({
+  summary,
+  competitorName,
+}: SummaryComparisonProps) {
   return (
     <Section className="container">
       <SectionHeader
@@ -49,4 +52,3 @@ export function SummaryComparison({ summary, competitorName }: SummaryComparison
     </Section>
   );
 }
-

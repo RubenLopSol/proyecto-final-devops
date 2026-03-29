@@ -83,8 +83,7 @@ export function BreakdownList({
         const isVisible = visibleSeriesIds.includes(item.id);
         const visibleIndex = getVisibleIndex(item.id);
         const previousItem = previousData[index] ?? null;
-        const hasBreakdownName =
-          item.breakdowns && item.breakdowns.length > 0;
+        const hasBreakdownName = item.breakdowns && item.breakdowns.length > 0;
         const color =
           isVisible && visibleIndex !== -1
             ? getChartColor(visibleIndex)
@@ -124,9 +123,7 @@ export function BreakdownList({
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 )}
                 <span className="font-medium truncate">
-                  {hasBreakdownName
-                    ? item.breakdowns.join(' > ')
-                    : 'Funnel'}
+                  {hasBreakdownName ? item.breakdowns.join(' > ') : 'Funnel'}
                 </span>
               </button>
 
@@ -136,16 +133,11 @@ export function BreakdownList({
                     Conversion
                   </div>
                   <div className="font-mono font-semibold text-sm">
-                    {number.formatWithUnit(
-                      item.lastStep.percent / 100,
-                      '%',
-                    )}
+                    {number.formatWithUnit(item.lastStep.percent / 100, '%')}
                   </div>
                 </div>
                 <div className="text-right row gap-2 items-center">
-                  <div className="text-muted-foreground text-sm">
-                    Completed
-                  </div>
+                  <div className="text-muted-foreground text-sm">Completed</div>
                   <div className="font-mono font-semibold text-sm">
                     {number.format(item.lastStep.count)}
                   </div>

@@ -1,14 +1,14 @@
 import { Section, SectionHeader } from '@/components/section';
-import { CompareFeatureComparison } from '@/lib/compare';
+import type { CompareFeatureComparison } from '@/lib/compare';
 import {
+  BellIcon,
+  BrainIcon,
   HeartIcon,
+  LayoutIcon,
+  LockIcon,
   MessageSquareIcon,
   RefreshCwIcon,
   SparklesIcon,
-  LayoutIcon,
-  BellIcon,
-  BrainIcon,
-  LockIcon,
 } from 'lucide-react';
 
 interface FeaturesShowcaseProps {
@@ -60,4 +60,3 @@ export function FeaturesShowcase({ featureComparison }: FeaturesShowcaseProps) {
     </Section>
   );
 }
-

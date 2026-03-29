@@ -1,14 +1,14 @@
 import { Section, SectionHeader } from '@/components/section';
-import { CompareSummary } from '@/lib/compare';
+import type { CompareSummary } from '@/lib/compare';
 import {
-  UsersIcon,
-  SparklesIcon,
-  SearchIcon,
-  MoonIcon,
-  ShieldIcon,
-  ServerIcon,
-  ZapIcon,
   CheckCircleIcon,
+  MoonIcon,
+  SearchIcon,
+  ServerIcon,
+  ShieldIcon,
+  SparklesIcon,
+  UsersIcon,
+  ZapIcon,
 } from 'lucide-react';
 
 interface WhySwitchProps {
@@ -52,4 +52,3 @@ export function WhySwitch({ summary }: WhySwitchProps) {
     </Section>
   );
 }
-
