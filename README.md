@@ -1,4 +1,4 @@
-# OpenPanel DevOps Project
+# OpenPanel DevOps Project <!-- CI validated -->
 
 Pipeline DevOps completo para [OpenPanel](https://github.com/Openpanel-dev/openpanel) desplegado sobre Kubernetes con GitOps, observabilidad completa, Blue-Green deployment y backup automatizado.
 
@@ -94,8 +94,6 @@ proyecto_final/
 │       ├── variables.tf
 │       └── outputs.tf
 │
-├── audit.md                     # Auditoría de los workflows de GitHub Actions
-├── local-testing.md             # Guía de testing local (act, checks manuales, arranque desde cero)
 ├── credentials-velero.example   # Plantilla de credenciales MinIO para Velero
 ├── Makefile                     # Automatización completa del despliegue
 │
