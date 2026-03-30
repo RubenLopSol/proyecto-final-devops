@@ -9,7 +9,7 @@ spec:
   project: openpanel
   source:
     repoURL: https://github.com/RubenLopSol/proyecto-final-devops.git
-    targetRevision: test/ci-pipeline-validation
+    targetRevision: master
     path: k8s/overlays/local
   destination:
     server: https://kubernetes.default.svc

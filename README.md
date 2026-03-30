@@ -351,6 +351,8 @@ aws_secret_access_key=TU_MINIO_SECRET_KEY
 
 ## Documentación
 
+**Guía de testing local** (issues conocidos, verificación de conexiones, troubleshooting): [`local-testing.md`](local-testing.md)
+
 La documentación técnica completa está en [`docs/documentacion/`](docs/documentacion/) en español e inglés:
 
 | Documento | Contenido |
