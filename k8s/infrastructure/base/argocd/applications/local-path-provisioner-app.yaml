@@ -11,7 +11,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: openpanel
+  project: default
   source:
     repoURL: https://github.com/RubenLopSol/proyecto-final-devops.git
     targetRevision: master
