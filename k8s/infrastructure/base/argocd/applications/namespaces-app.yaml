@@ -17,7 +17,7 @@ spec:
     path: k8s/infrastructure/base/namespaces
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: kube-system
   syncPolicy:
     automated:
       prune: true
