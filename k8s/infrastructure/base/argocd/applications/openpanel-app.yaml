@@ -18,6 +18,14 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: openpanel
+  # volumeClaimTemplates.storageClassName is immutable once a StatefulSet is created.
+  # The staging overlay sets local-path but existing StatefulSets keep their original
+  # storageClass (standard). Ignore this field to stop ArgoCD from trying to patch it.
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
   syncPolicy:
     automated:
       prune: true
@@ -26,6 +34,7 @@ spec:
     syncOptions:
       - PrunePropagationPolicy=foreground
       - PruneLast=true
+      - ServerSideApply=true
     retry:
       limit: 5
       backoff:
