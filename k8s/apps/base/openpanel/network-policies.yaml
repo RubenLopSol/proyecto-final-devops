@@ -181,7 +181,27 @@ spec:
         - port: 9187
         - port: 9363
 ---
-# Databases: only accept from API and Worker
+# Migrate job: allow egress to postgres only (runs prisma migrate deploy)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-migrate-egress
+  namespace: openpanel
+spec:
+  podSelector:
+    matchLabels:
+      app: openpanel-migrate
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - port: 5432
+---
+# Databases: only accept from API, Worker, and migrate job
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -201,4 +221,4 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [openpanel-api, openpanel-worker]
+                values: [openpanel-api, openpanel-worker, openpanel-migrate]
