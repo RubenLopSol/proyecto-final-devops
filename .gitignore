@@ -58,5 +58,9 @@ tfplan.txt
 # Logs
 *.log
 
-# Documentación interna - no subir
+# Local-only notes — never commit
 docs/paso_a_paso/
+GUIA_PASO_A_PASO.md
+review.md
+audit.md
+fixed.md
