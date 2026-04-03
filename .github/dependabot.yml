@@ -1,0 +1,89 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# Dependabot — automated dependency updates
+#
+# Three ecosystems are covered:
+#
+#   github-actions  — keeps all uses: action@version lines current.
+#                     Tags like @v4 are mutable — a tag can be silently moved
+#                     to a different (potentially malicious) commit. Dependabot
+#                     opens PRs when new versions are released so you review the
+#                     changelog before merging.
+#
+#   npm (pnpm)      — tracks npm packages defined in openpanel/package.json.
+#                     Dependabot reads pnpm-lock.yaml automatically. Security
+#                     advisories for direct and transitive deps surface as PRs.
+#
+#   docker          — tracks FROM base images in the three Dockerfiles.
+#                     Keeps node:22-alpine, etc. patched against CVEs.
+#
+# Next step (hardening for github-actions):
+#   Pin actions to immutable commit SHAs instead of version tags:
+#     uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+#   Dependabot supports SHA-pinned workflows and will still open bump PRs.
+# ---------------------------------------------------------------------------
+
+updates:
+  # --------------------------------------------------------------------------
+  # GitHub Actions — runs across all workflow files
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  # --------------------------------------------------------------------------
+  # npm / pnpm — application dependencies
+  # Dependabot reads pnpm-lock.yaml when it finds it alongside package.json.
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/openpanel"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "javascript"
+    # Cap at 10 open PRs — hundreds of transitive deps would otherwise flood
+    # the PR list with daily version-bump noise.
+    open-pull-requests-limit: 10
+
+  # --------------------------------------------------------------------------
+  # Docker — base images in the three service Dockerfiles
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/openpanel/apps/api"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(docker)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/openpanel/apps/start"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(docker)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/openpanel/apps/worker"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(docker)"
+    labels:
+      - "dependencies"
+      - "docker"

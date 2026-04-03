@@ -11,7 +11,7 @@ useDefault = true
 description = "Allowlist para datos cifrados y credenciales de test"
 paths = [
   # SealedSecrets: datos cifrados, no son secretos reales
-  "k8s/argocd/sealed-secrets/.*\\.yaml",
+  "k8s/infrastructure/base/sealed-secrets/secrets\\.yaml",
   # Terraform LocalStack: credenciales fijas de test (access_key = "test")
   "terraform/localstack/.*\\.tf",
 ]

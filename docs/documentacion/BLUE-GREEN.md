@@ -24,7 +24,7 @@ Se aplica únicamente al servicio **API** porque es el componente más crítico:
 ### Dos Deployments simultáneos
 
 ```
-k8s/base/openpanel/
+k8s/apps/base/openpanel/
 ├── api-deployment-blue.yaml    ← versión Blue (activa)
 ├── api-deployment-green.yaml   ← versión Green (standby)
 └── api-service.yaml            ← Service (selector apunta a Blue o Green)
@@ -214,7 +214,7 @@ En el modelo GitOps, el cambio del selector del Service debe también reflejarse
 ```bash
 # Editar api-service.yaml en el repositorio
 # Cambiar: version: blue → version: green
-git add k8s/base/openpanel/api-service.yaml
+git add k8s/apps/base/openpanel/api-service.yaml
 git commit -m "feat: switch API traffic to green (v1.2.0)"
 git push
 # ArgoCD aplica el cambio automáticamente

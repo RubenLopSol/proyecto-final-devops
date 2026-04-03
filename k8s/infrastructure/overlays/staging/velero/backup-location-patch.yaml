@@ -1,0 +1,23 @@
+# Staging BackupStorageLocation patch
+# Overrides the base (which points to in-cluster MinIO) to use LocalStack S3.
+# LocalStack is the local AWS emulator that Terraform provisions.
+#
+# Bucket name matches terraform/environments/staging/variables.tf default.
+# s3Url points to LocalStack running on the host machine.
+#
+# NOTE: Minikube pods reach the host via the Minikube gateway IP.
+# Get it with: minikube ssh "ip route | awk '/default/ {print $3}'"
+# Typically 192.168.49.1. Set LOCALSTACK_HOST in your environment if different.
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: openpanel-velero-backups
+  config:
+    region: us-east-1
+    s3ForcePathStyle: "true"
+    s3Url: http://192.168.49.1:4566

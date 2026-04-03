@@ -21,13 +21,13 @@ El repositorio incluye scripts en `scripts/` que automatizan las operaciones má
 
 ```bash
 # Arrancar el clúster (perfil openpanel)
-minikube start -p openpanel
+minikube start -p devops-cluster
 
 # Parar el clúster (los datos persisten)
-minikube stop -p openpanel
+minikube stop -p devops-cluster
 
 # Estado del clúster
-minikube status -p openpanel
+minikube status -p devops-cluster
 ```
 
 ### Recuperación tras reinicio de minikube
@@ -42,7 +42,7 @@ kubectl get pods -A | grep -v "Running\|Completed"
 kubectl delete pod -n argocd -l app.kubernetes.io/name=repo-server
 
 # 3. Si sealed-secrets-controller está en CrashLoopBackOff
-kubectl delete pod -n kube-system -l app.kubernetes.io/name=sealed-secrets
+kubectl delete pod -n sealed-secrets -l app.kubernetes.io/name=sealed-secrets
 
 # 4. Esperar ~30s y verificar que todos han recuperado
 kubectl get pods -A | grep -v "Running\|Completed"
@@ -203,11 +203,11 @@ argocd app list
 
 # Sincronizar manualmente una app
 argocd app sync openpanel
-argocd app sync observability-prometheus
-argocd app sync observability-loki
-argocd app sync observability-promtail
-argocd app sync observability-tempo
-argocd app sync backup
+argocd app sync observability
+argocd app sync minio
+argocd app sync velero
+argocd app sync sealed-secrets
+argocd app sync namespaces
 
 # Ver diferencias entre Git y el clúster
 argocd app diff openpanel
@@ -272,19 +272,19 @@ velero restore create \
 ## Secrets — Gestión con Sealed Secrets
 
 ```bash
-# Crear un nuevo Sealed Secret
-kubectl create secret generic mi-secret \
-  --from-literal=key=value \
-  --namespace openpanel \
-  --dry-run=client -o yaml | \
-kubeseal --controller-namespace sealed-secrets \
-  --format yaml > k8s/argocd/sealed-secrets/mi-secret.yaml
+# Regenerar todos los secrets cifrados (tras rotar credenciales o recrear el clúster)
+make reseal-secrets ENV=staging
+
+# Rotar una credencial específica
+make reseal-secrets ENV=staging POSTGRES_PASSWORD=nueva-pass
 
 # Verificar que el controller está activo
 kubectl get pods -n sealed-secrets
 
-# Ver secrets descifrados en el namespace
+# Ver secrets descifrados en los namespaces
 kubectl get secrets -n openpanel
+kubectl get secrets -n observability
+kubectl get secrets -n backup
 ```
 
 ---

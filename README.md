@@ -61,24 +61,25 @@ proyecto_final/
 ├── openpanel/                   # Código fuente de OpenPanel (fork)
 │
 ├── k8s/
-│   ├── base/
-│   │   ├── namespaces/          # Definición de namespaces
-│   │   ├── openpanel/           # API (blue/green), Dashboard, Worker, PostgreSQL, ClickHouse, Redis
-│   │   └── backup/              # MinIO, Velero schedules
-│   ├── helm/
-│   │   └── values/              # Values files para Helm charts
-│   │       ├── kube-prometheus-stack.yaml  # Prometheus + Grafana + AlertManager + alertas
-│   │       ├── argocd.yaml                 # ArgoCD Helm values
-│   │       ├── loki.yaml                   # Agregación de logs
-│   │       ├── promtail.yaml               # Recolección de logs
-│   │       └── tempo.yaml                  # Distributed tracing
-│   ├── overlays/
-│   │   └── local/               # Overlay para Minikube (resource limits)
-│   └── argocd/
-│       ├── bootstrap-app.yaml   # App of Apps — raíz del patrón GitOps
-│       ├── applications/        # ArgoCD Application manifests (Kustomize + Helm)
-│       ├── projects/            # ArgoCD AppProject (permisos y scope)
-│       └── sealed-secrets/      # Secrets cifrados (Sealed Secrets)
+│   ├── apps/                    # Capa de aplicación (workloads)
+│   │   ├── base/
+│   │   │   └── openpanel/       # API (blue/green), Dashboard, Worker, PostgreSQL, ClickHouse, Redis
+│   │   └── overlays/
+│   │       ├── staging/         # Overlay Minikube — réplicas reducidas, menos recursos
+│   │       └── prod/            # Overlay producción — réplicas altas, TLS, PDB
+│   └── infrastructure/          # Capa de plataforma (cluster tooling)
+│       ├── base/
+│       │   ├── namespaces/      # Definición de namespaces
+│       │   ├── observability/   # Helm values base: Prometheus, Grafana, Loki, Tempo
+│       │   ├── backup/          # MinIO, Velero daily schedule
+│       │   └── sealed-secrets/  # Secrets cifrados (Sealed Secrets)
+│       ├── overlays/
+│       │   ├── staging/         # Minikube: PVC 5Gi, retención 3d
+│       │   └── prod/            # Producción: PVC 50Gi, retención 30d, hourly backup
+│       └── argocd/
+│           ├── bootstrap-app.yaml  # App of Apps — raíz del patrón GitOps
+│           ├── applications/       # ArgoCD Application manifests (Kustomize + Helm)
+│           └── projects/           # ArgoCD AppProject (permisos y scope)
 │
 ├── scripts/
 │   ├── setup-minikube.sh        # Arranca el clúster, crea namespaces y configura /etc/hosts
@@ -155,7 +156,7 @@ Instala el controller de Sealed Secrets y aplica los secrets cifrados del reposi
 
 El script instala ArgoCD via Helm (`helm upgrade --install`), espera al secret del admin, aplica el AppProject y aplica el bootstrap Application (App of Apps). Al terminar imprime la URL de acceso y las credenciales iniciales.
 
-ArgoCD sincronizará automáticamente todo lo que hay en `k8s/argocd/applications/` — la aplicación, observabilidad y backup.
+ArgoCD sincronizará automáticamente todo lo que hay en `k8s/infrastructure/argocd/applications/` — la aplicación, observabilidad y backup.
 
 ```bash
 # Verificar que las apps están sincronizando
@@ -180,7 +181,7 @@ velero install \
   --backup-location-config \
     region=minio,s3ForcePathStyle=true,s3Url=http://minio.backup.svc.cluster.local:9000
 
-kubectl apply -f k8s/base/backup/velero/schedule.yaml
+kubectl apply -f k8s/infrastructure/backup/velero/schedule.yaml
 ```
 
 ---
@@ -311,14 +312,14 @@ kubectl create secret generic postgres-credentials \
   --namespace openpanel \
   --dry-run=client -o yaml | \
 kubeseal --controller-namespace sealed-secrets --format yaml \
-  > k8s/argocd/sealed-secrets/postgres-credentials.yaml
+  > k8s/infrastructure/base/sealed-secrets/secrets.yaml
 ```
 
 ---
 
 ### 3. ConfigMap de la aplicación
 
-Actualizar las URLs en `k8s/base/openpanel/configmap.yaml` si usas un dominio diferente a `openpanel.local`:
+Actualizar las URLs en `k8s/apps/base/openpanel/configmap.yaml` si usas un dominio diferente a `openpanel.local`:
 
 ```yaml
 data:

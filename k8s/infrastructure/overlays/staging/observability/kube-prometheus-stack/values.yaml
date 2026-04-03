@@ -1,0 +1,42 @@
+# =============================================================================
+# kube-prometheus-stack — STAGING overrides
+# Merged on top of k8s/infrastructure/base/observability/kube-prometheus-stack/values.yaml
+# These values shrink resources and retention to fit Minikube.
+# =============================================================================
+
+prometheus:
+  prometheusSpec:
+    # 3-day retention — enough for local development/debugging
+    retention: 3d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 5Gi
+
+grafana:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi

@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and fill in before running terraform apply.
+# terraform.tfvars is gitignored — never commit it.
+
+eks_cluster_name       = "openpanel-prod"
+bucket_name            = "openpanel-velero-backups-prod-<your-account-id>"
+aws_region             = "us-east-1"
+retention_days         = 90
+velero_namespace       = "velero"
+velero_service_account = "velero"

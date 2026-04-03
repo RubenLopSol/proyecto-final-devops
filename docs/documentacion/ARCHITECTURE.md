@@ -51,7 +51,7 @@ OpenPanel es una plataforma de analítica web desplegada sobre un clúster local
 | `observability` | Prometheus, Grafana, Loki, Promtail, Tempo, exporters |
 | `argocd` | ArgoCD (GitOps controller) |
 | `backup` | MinIO (object storage para backups) |
-| `velero` | Velero (backup controller) |
+| `velero` | Velero (backup controller y CRDs: BackupStorageLocation, Schedule) |
 | `ingress-nginx` | Ingress Controller |
 | `sealed-secrets` | Sealed Secrets Controller |
 
@@ -67,25 +67,33 @@ OpenPanel es una plataforma de analítica web desplegada sobre un clúster local
 proyecto_final/
 ├── .github/
 │   └── workflows/
-│       ├── ci-validate.yml     # CI-Lint-Test-Validate (gate de calidad)
-│       ├── ci-build-publish.yml           # CI-Build-Publish (construye y publica imágenes)
-│       └── cd-update-tags.yml  # CD-Update-GitOps-Manifests (actualiza tags en manifiestos)
-├── .kube-linter.yaml           # Checks selectivos de kube-linter (CI)
-├── .hadolint.yaml              # Reglas ignoradas de hadolint para Dockerfiles upstream (CI)
+│       ├── ci-validate.yml        # CI-Lint-Test-Validate (gate de calidad)
+│       ├── ci-build-publish.yml   # CI-Build-Publish (construye y publica imágenes)
+│       └── cd-update-tags.yml     # CD-Update-GitOps-Manifests (actualiza tags)
+├── .kube-linter.yaml              # Checks selectivos de kube-linter (CI)
+├── .hadolint.yaml                 # Reglas ignoradas de hadolint (CI)
 ├── k8s/
-│   ├── base/
-│   │   ├── namespaces/     # Definición de namespaces
-│   │   ├── openpanel/      # Manifiestos de la aplicación
-│   ├── helm/values/        # Values files para Helm charts
-│   │   └── backup/         # MinIO, Velero schedules
-│   ├── overlays/
-│   │   └── local/          # Overlay Minikube (resource limits patch)
-│   └── argocd/
-│       ├── applications/   # ArgoCD Application manifests
-│       ├── projects/       # ArgoCD Project
-│       └── sealed-secrets/ # Secrets cifrados
-├── openpanel/              # Código fuente de la aplicación
-└── docs/                   # Documentación del proyecto
+│   ├── apps/                      # Capa de aplicación (workloads)
+│   │   ├── base/
+│   │   │   └── openpanel/         # Manifiestos base: API, Dashboard, Worker, DBs, Ingress
+│   │   └── overlays/
+│   │       ├── staging/           # Minikube: réplicas 1, recursos reducidos
+│   │       └── prod/              # Producción: réplicas altas, TLS, PDB
+│   └── infrastructure/            # Capa de plataforma (cluster tooling)
+│       ├── base/
+│       │   ├── namespaces/        # Definición de namespaces (común a todos los entornos)
+│       │   ├── observability/     # Helm values base: Prometheus, Grafana, Loki, Tempo
+│       │   ├── backup/            # MinIO + Velero daily schedule (base)
+│       │   └── sealed-secrets/    # Secrets cifrados con Sealed Secrets
+│       ├── overlays/
+│       │   ├── staging/           # Minikube: PVC 5Gi, retención 3d, recursos reducidos
+│       │   └── prod/              # Producción: PVC 50Gi, retención 30d, hourly backup
+│       └── argocd/
+│           ├── applications/      # ArgoCD Application manifests (App of Apps)
+│           ├── projects/          # ArgoCD AppProject
+│           └── bootstrap-app.yaml # Bootstrap — arranca todo el stack
+├── openpanel/                     # Código fuente de la aplicación
+└── docs/                          # Documentación del proyecto
 ```
 
 ---
@@ -123,9 +131,8 @@ La principal ventaja es poder soportar múltiples entornos (local, staging, prod
 k8s/
 ├── base/              → configuración común a todos los entornos (se escribe una sola vez)
 └── overlays/
-    ├── local/         → solo lo que cambia en Minikube (menos recursos)
-    ├── staging/       → solo lo que cambia en staging (réplicas, URLs)
-    └── production/    → solo lo que cambia en producción (recursos completos, HPA)
+    ├── dev/           → solo lo que cambia en Minikube (réplicas 1, recursos reducidos)
+    └── prod/          → solo lo que cambia en producción (réplicas 3, TLS, PDB)
 ```
 
 Cada overlay únicamente define sus diferencias respecto a `base/`. No se repite ningún YAML. Si hay que cambiar algo común a todos los entornos, se cambia una sola vez en `base/` y todos los overlays lo heredan automáticamente.

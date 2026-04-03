@@ -1,0 +1,15 @@
+# =============================================================================
+# Loki — PROD overrides
+# Merged on top of k8s/infrastructure/base/observability/loki/values.yaml
+# Increases replicas and resources for production log volumes.
+# =============================================================================
+
+singleBinary:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

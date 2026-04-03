@@ -1,8 +1,0 @@
-# Reduce resource limits for local Minikube environment
-# This patch is applied to all Deployments in openpanel namespace
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: placeholder
-  annotations:
-    environment: local

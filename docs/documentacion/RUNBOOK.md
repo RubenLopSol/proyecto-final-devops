@@ -30,7 +30,7 @@ Developer push a main
     ↓
 CI ejecuta lint + build + push imagen
     ↓
-CD actualiza image tag en k8s/base/openpanel/
+CD actualiza image tag en k8s/apps/base/openpanel/
     ↓
 ArgoCD detecta el cambio y despliega
     ↓
@@ -98,7 +98,7 @@ kubectl get svc openpanel-api -n openpanel \
 
 ```bash
 # Revertir el último commit del CD (que actualizó el image tag)
-git log --oneline k8s/base/openpanel/ | head -5
+git log --oneline k8s/apps/base/openpanel/ | head -5
 git revert <commit-sha>
 git push
 # ArgoCD desplegará la versión anterior automáticamente
@@ -123,7 +123,7 @@ kubectl describe pod -n openpanel <pod-name> | tail -20
 
 | Causa | Síntoma en logs | Solución |
 |---|---|---|
-| Secret no encontrado | `secret "X" not found` | Aplicar Sealed Secret: `kubectl apply -f k8s/argocd/sealed-secrets/` |
+| Secret no encontrado | `secret "X" not found` | Reseal: `make sealed-secrets ENV=staging` o `argocd app sync sealed-secrets` |
 | Variable de entorno faltante | `Error: missing env DATABASE_URL` | Verificar ConfigMap y Secrets |
 | No puede conectar a la DB | `ECONNREFUSED :5432` | Verificar que PostgreSQL está Running y NetworkPolicy permite la conexión |
 | OOMKilled | `OOMKilled` en reason | Aumentar memory limit en el patch de resource-limits |
@@ -217,7 +217,7 @@ kubectl describe pod -n openpanel <pod-name> | grep -A4 "Limits:"
 
 # 3. Si el pod está siendo OOMKilled frecuentemente,
 #    aumentar el límite de memoria en el patch:
-# k8s/overlays/local/patches/resource-limits.yaml
+# k8s/apps/overlays/staging/patches/api-blue.yaml (o start.yaml / worker.yaml según el pod)
 
 # 4. Reiniciar el pod para liberar memoria inmediatamente
 kubectl delete pod -n openpanel <pod-name>
@@ -281,20 +281,17 @@ kubectl exec -it -n openpanel \
 Cuando es necesario cambiar una contraseña o token:
 
 ```bash
-# 1. Crear el nuevo Sealed Secret con el nuevo valor
-kubectl create secret generic postgres-credentials \
-  --from-literal=postgres-password=NuevaContraseña123 \
-  --namespace openpanel \
-  --dry-run=client -o yaml | \
-kubeseal --controller-namespace sealed-secrets \
-  --format yaml > k8s/argocd/sealed-secrets/postgres-credentials.yaml
+# 1. Regenerar secrets.yaml con la nueva credencial (el resto usa los valores del .secrets)
+make reseal-secrets ENV=staging POSTGRES_PASSWORD=NuevaContraseña123
 
-# 2. Commitear y pushear
-git add k8s/argocd/sealed-secrets/postgres-credentials.yaml
+# 2. Commitear y pushear el archivo cifrado (es seguro)
+git add k8s/infrastructure/overlays/staging/sealed-secrets/secrets.yaml
 git commit -m "chore: rotate postgres credentials"
 git push
 
-# 3. ArgoCD aplicará el cambio automáticamente
+# 3. ArgoCD (app sealed-secrets) aplica el cambio automáticamente.
+# El controller crea el nuevo Secret con la contraseña actualizada.
+
 # 4. Reiniciar los pods que usan el secret para que tomen el nuevo valor
 kubectl rollout restart deployment/openpanel-api-blue -n openpanel
 kubectl rollout restart deployment/openpanel-worker -n openpanel
@@ -313,28 +310,24 @@ Procedimiento completo cuando el clúster se ha eliminado o es un entorno nuevo:
 # 1. Crear clúster Minikube (usa el script)
 ./scripts/setup-minikube.sh
 
-# 2. Instalar Sealed Secrets PRIMERO
-helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets && helm repo update
-helm install sealed-secrets sealed-secrets/sealed-secrets -n sealed-secrets --create-namespace
+# 2. Instalar Sealed Secrets PRIMERO (controller + reseal + aplicar secrets)
+make sealed-secrets ENV=staging
+# Si tienes backup de la clave RSA del clúster anterior, restáurala primero:
+# make restore-sealing-key
 
-# 3. Aplicar todos los Sealed Secrets
-kubectl apply -f k8s/argocd/sealed-secrets/
-
-# 4. Instalar ArgoCD (usa el script — incluye Ingress y modo HTTP)
+# 3. Instalar ArgoCD (usa el script — incluye Ingress y modo HTTP)
 ./scripts/install-argocd.sh
+# El script aplica el AppProject y el bootstrap automáticamente.
+# ArgoCD sincronizará openpanel, observability, minio, velero, sealed-secrets, namespaces.
 
-# 5. Aplicar proyecto y aplicaciones ArgoCD
-kubectl apply -f k8s/argocd/projects/
-kubectl apply -f k8s/argocd/applications/
-
-# 6. Esperar a que ArgoCD sincronice todo
+# 4. Esperar a que ArgoCD sincronice todo
 kubectl get applications -n argocd -w
 
-# 7. Instalar Velero
+# 5. Instalar el servidor Velero (manual — gestiona los backups)
 cat > velero-credentials <<EOF
 [default]
-aws_access_key_id=minioadmin
-aws_secret_access_key=minio-secret-2024
+aws_access_key_id=$(grep MINIO_USER .secrets | cut -d= -f2)
+aws_secret_access_key=$(grep MINIO_PASSWORD .secrets | cut -d= -f2)
 EOF
 
 velero install \
@@ -343,14 +336,16 @@ velero install \
   --bucket velero-backups \
   --secret-file ./velero-credentials \
   --use-volume-snapshots=false \
+  --namespace velero \
   --backup-location-config region=minio,s3ForcePathStyle=true,s3Url=http://minio.backup.svc.cluster.local:9000
-kubectl apply -f k8s/base/backup/velero/schedule.yaml
 
-# 8. Configurar DNS local
-echo "$(minikube ip -p openpanel) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local" \
+rm velero-credentials  # no dejar en disco
+
+# 6. Configurar DNS local
+echo "$(minikube ip -p devops-cluster) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local" \
   | sudo tee -a /etc/hosts
 
-# 9. Verificar estado final
+# 7. Verificar estado final
 kubectl get pods -A
 kubectl get applications -n argocd
 velero schedule get --namespace velero

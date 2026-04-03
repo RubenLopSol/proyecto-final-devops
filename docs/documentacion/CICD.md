@@ -158,7 +158,7 @@ env:
 
 | Paso | Herramienta | Qué valida |
 |---|---|---|
-| `kustomize build k8s/overlays/local` | Kustomize v5.3.0 | Los overlays generan YAML válido |
+| `kustomize build k8s/apps/overlays/staging` + `kustomize build k8s/apps/overlays/prod` | Kustomize v5.3.0 | Ambos overlays generan YAML válido |
 | `kubeconform` (verbose, strict) | kubeconform v0.6.4 | Los manifiestos cumplen los schemas de Kubernetes 1.28 |
 | `kube-linter lint --config .kube-linter.yaml` | kube-linter v0.6.4 | Checks selectivos definidos en `.kube-linter.yaml` (ver detalle abajo) |
 | `hadolint --failure-threshold error` | hadolint v2.12.0 | Lint de Dockerfiles (API, Start, Worker) — solo errores bloquean el pipeline, los warnings se ignoran |
@@ -304,12 +304,12 @@ Este job actualiza los manifiestos de Kubernetes directamente en Git:
 ```bash
 # 1. Actualiza el tag de imagen en los 3 deployments
 sed -i "s|image: ghcr.io/.*/openpanel-api:.*|image: ghcr.io/<owner>/openpanel-api:main-<sha>|g" \
-  k8s/base/openpanel/api-deployment-blue.yaml
+  k8s/apps/base/openpanel/api-deployment-blue.yaml
 # (igual para start-deployment.yaml y worker-deployment.yaml)
 
 # 2. Actualiza el targetRevision de la ArgoCD Application al nuevo release tag
 sed -i "s|targetRevision:.*|targetRevision: release/main-<sha>|" \
-  k8s/argocd/applications/openpanel-app.yaml
+  k8s/infrastructure/argocd/applications/openpanel-app.yaml
 
 # 3. Commit con todos los cambios (imagen + ArgoCD Application)
 git commit -m "chore: update image tags to main-<sha>"

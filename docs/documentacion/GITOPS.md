@@ -38,26 +38,25 @@ Rama principal: master
 
 ```
 k8s/
-├── base/                        ← Configuración base reutilizable
-│   ├── namespaces/
-│   ├── openpanel/               ← App: API, Dashboard, Worker, DBs (Kustomize)
-│   └── backup/                  ← MinIO, Velero schedules (Kustomize)
-├── helm/
-│   └── values/                  ← Values files para Helm charts de observabilidad
-│       ├── kube-prometheus-stack.yaml
-│       ├── loki.yaml
-│       ├── promtail.yaml
-│       └── tempo.yaml
-├── overlays/
-│   └── local/                   ← Personalización para Minikube
-│       ├── kustomization.yaml
-│       └── patches/
-│           └── resource-limits.yaml
-└── argocd/
-    ├── bootstrap-app.yaml       ← App of Apps raíz
-    ├── applications/            ← ArgoCD Application CRDs
-    ├── projects/                ← ArgoCD Project CRD
-    └── sealed-secrets/          ← Secrets cifrados
+├── apps/                        ← Capa de aplicación (workloads)
+│   ├── base/
+│   │   └── openpanel/           ← Manifiestos base: API, Worker, DBs, Ingress
+│   └── overlays/
+│       ├── staging/             ← Minikube: 1 réplica, recursos reducidos
+│       └── prod/                ← Producción: réplicas altas, TLS, PDB
+└── infrastructure/              ← Capa de plataforma (cluster tooling)
+    ├── base/
+    │   ├── namespaces/          ← Definición de namespaces
+    │   ├── observability/       ← Helm values base: Prometheus, Grafana, Loki, Tempo
+    │   ├── backup/              ← MinIO + Velero daily schedule
+    │   └── sealed-secrets/      ← Secrets cifrados con Sealed Secrets
+    ├── overlays/
+    │   ├── staging/             ← Minikube: PVC 5Gi, retención 3d
+    │   └── prod/                ← Producción: PVC 50Gi, retención 30d, hourly backup
+    └── argocd/
+        ├── bootstrap-app.yaml   ← App of Apps raíz
+        ├── applications/        ← ArgoCD Application CRDs
+        └── projects/            ← ArgoCD Project CRD
 ```
 
 ---
@@ -67,7 +66,7 @@ k8s/
 El proyecto `openpanel` en ArgoCD agrupa las tres aplicaciones y define los permisos:
 
 ```yaml
-# k8s/argocd/projects/openpanel-project.yaml
+# k8s/infrastructure/argocd/projects/openpanel-project.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -79,21 +78,21 @@ metadata:
 
 ## App of Apps — Bootstrap
 
-En lugar de aplicar manualmente `kubectl apply -f k8s/argocd/applications/` cada vez que se añade una aplicación, el proyecto usa el patrón **App of Apps**:
+En lugar de aplicar manualmente `kubectl apply -f k8s/infrastructure/argocd/applications/` cada vez que se añade una aplicación, el proyecto usa el patrón **App of Apps**:
 
-`k8s/argocd/bootstrap-app.yaml` es una ArgoCD Application que vigila el directorio `k8s/argocd/applications/` en la rama master. Cuando se añade o modifica cualquier Application en ese directorio, el bootstrap la detecta y la aplica automáticamente.
+`k8s/infrastructure/argocd/bootstrap-app.yaml` es una ArgoCD Application que vigila el directorio `k8s/infrastructure/argocd/applications/` en la rama master. Cuando se añade o modifica cualquier Application en ese directorio, el bootstrap la detecta y la aplica automáticamente.
 
 **Para arrancar todo el sistema:**
 
 ```bash
 # Un solo comando tras instalar ArgoCD
-kubectl apply -f k8s/argocd/bootstrap-app.yaml
+kubectl apply -f k8s/infrastructure/argocd/bootstrap-app.yaml
 
 # A partir de aquí ArgoCD gestiona todo lo demás automáticamente
 ```
 
 **Ventajas:**
-- Añadir una nueva aplicación = crear un YAML en `k8s/argocd/applications/` + push
+- Añadir una nueva aplicación = crear un YAML en `k8s/infrastructure/argocd/applications/` + push
 - El CD pipeline puede actualizar el `targetRevision` de las Applications en Git — ArgoCD aplica el cambio sin intervención manual
 - Auditable: cualquier cambio en las Applications queda en el historial de Git
 
@@ -107,19 +106,43 @@ kubectl apply -f k8s/argocd/bootstrap-app.yaml
 
 ![ArgoCD — Recursos desplegados de la aplicación openpanel](../screenshots/argocd-openpanel-resources.png)
 
-Se gestionan 6 aplicaciones ArgoCD:
+Se gestionan 7 aplicaciones ArgoCD:
 
-| Aplicación | Fuente | Namespace destino | Sync |
-|---|---|---|---|
-| `bootstrap` | Git (`k8s/argocd/applications/`) | `argocd` | Automático |
-| `openpanel` | Git + Kustomize (`k8s/overlays/local`) | `openpanel` | Automático |
-| `backup` | Git + Kustomize (`k8s/base/backup`) | `backup` | Automático |
-| `observability-prometheus` | Helm chart `kube-prometheus-stack` + values Git | `observability` | Automático |
-| `observability-loki` | Helm chart `grafana/loki` + values Git | `observability` | Automático |
-| `observability-promtail` | Helm chart `grafana/promtail` + values Git | `observability` | Automático |
-| `observability-tempo` | Helm chart `grafana/tempo` + values Git | `observability` | Automático |
+| Aplicación | Fuente (path en Git) | Namespace destino | Sync | Wave |
+|---|---|---|---|---|
+| `bootstrap` | `k8s/infrastructure/argocd/applications/` | `argocd` | Automático | — |
+| `namespaces` | `k8s/infrastructure/base/namespaces` | `argocd` | Automático | 0 |
+| `sealed-secrets` | `k8s/infrastructure/overlays/staging/sealed-secrets` | `sealed-secrets` | Automático | 1 |
+| `observability` | `k8s/infrastructure/overlays/staging/observability` | `observability` | Automático | 2 |
+| `minio` | `k8s/infrastructure/overlays/staging/minio` | `backup` | Automático | 2 |
+| `velero` | `k8s/infrastructure/overlays/staging/velero` | `velero` | Automático | 2 |
+| `openpanel` | `k8s/apps/overlays/staging` | `openpanel` | Automático | 3 |
 
-Las aplicaciones de observabilidad usan la feature **multi-source** de ArgoCD: una fuente apunta al Helm chart oficial y otra al repositorio Git donde viven los values.
+La app `observability` usa **kustomize + helmChartInflationGenerator** (`--enable-helm`): el overlay renderiza los cuatro charts (kube-prometheus-stack, loki, promtail, tempo) con los values del repositorio en una sola pasada de `kustomize build`. ArgoCD pasa `buildOptions: "--enable-helm"` al llamar a kustomize.
+
+La app `sealed-secrets` también usa `--enable-helm` para renderizar el chart del controller, y además incluye el archivo `secrets.yaml` con los SealedSecrets cifrados.
+
+### Orden de despliegue — Sync Waves
+
+Las seis Application CRs llevan la anotación `argocd.argoproj.io/sync-wave`. ArgoCD no avanza a la siguiente wave hasta que todos los recursos de la wave anterior están en estado `Healthy`. Esto garantiza el orden plataforma-primero / aplicación-después:
+
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"   # namespaces
+    argocd.argoproj.io/sync-wave: "1"   # sealed-secrets
+    argocd.argoproj.io/sync-wave: "2"   # observability, minio, velero
+    argocd.argoproj.io/sync-wave: "3"   # openpanel
+```
+
+| Wave | Apps | Motivo |
+|---|---|---|
+| 0 | `namespaces` | Los namespaces deben existir antes de que cualquier app despliegue recursos en ellos |
+| 1 | `sealed-secrets` | El controller debe estar en marcha y los Secrets descifrados antes de que los pods lean credenciales |
+| 2 | `observability`, `minio`, `velero` | Capa de plataforma: Prometheus, Grafana, Loki, Tempo, MinIO y los CRDs de Velero listos |
+| 3 | `openpanel` | La aplicación arranca con observabilidad completa, secrets y backup ya operativos |
+
+Esto significa que los pods de OpenPanel inician con Prometheus ya haciendo scraping, Promtail ya recogiendo logs y Grafana ya disponible — no hay huecos en métricas ni en historial de logs desde el primer día.
 
 ### Configuración de sync automático
 
@@ -152,12 +175,14 @@ syncPolicy:
 ![Flujo de despliegue GitOps](../diagrams/img/flujo_despliegue_GitOps.png)
 ---
 
-## Kustomize — Overlay Local
+## Kustomize — Overlays (staging y prod)
 
-El overlay `k8s/overlays/local` referencia la base e incluye un patch para ajustar los límites de recursos al entorno Minikube:
+El proyecto mantiene dos overlays siguiendo la convención estándar de Kustomize:
+
+**`k8s/apps/overlays/staging`** — desplegado en Minikube por ArgoCD. Reduce réplicas y recursos para que el clúster local no se quede sin memoria:
 
 ```yaml
-# k8s/overlays/local/kustomization.yaml
+# k8s/apps/overlays/staging/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -165,9 +190,40 @@ resources:
   - ../../base/namespaces
   - ../../base/openpanel
 
+commonAnnotations:
+  environment: staging
+  managed-by: kustomize
+
 patches:
-  - path: patches/resource-limits.yaml
+  - path: patches/api-blue.yaml   # réplicas: 1, cpu: 100m, mem: 256Mi
+  - path: patches/start.yaml      # cpu: 100m, mem: 128Mi
+  - path: patches/worker.yaml     # cpu: 100m, mem: 256Mi
 ```
+
+**`k8s/apps/overlays/prod`** — configuración para un clúster de producción real. Escala réplicas, añade TLS con cert-manager y un PodDisruptionBudget:
+
+```yaml
+# k8s/apps/overlays/prod/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/namespaces
+  - ../../base/openpanel
+  - resources/pdb.yaml            # PodDisruptionBudget (solo en prod)
+
+commonAnnotations:
+  environment: prod
+  managed-by: kustomize
+
+patches:
+  - path: patches/api-blue.yaml   # réplicas: 3
+  - path: patches/worker.yaml     # réplicas: 2
+  - path: patches/ingress.yaml    # TLS + dominios reales
+  - path: patches/configmap.yaml  # URLs de producción
+```
+
+CI valida **ambos** overlays en cada PR — un patch roto en prod se detecta antes de llegar al clúster.
 
 ---
 
@@ -199,7 +255,7 @@ argocd app rollback openpanel <revision-id>
 git tag --list 'release/*' --sort=-version:refname | head -10
 
 # Hacer rollback a un release tag anterior via GitOps:
-# 1. Editar k8s/argocd/applications/openpanel-app.yaml
+# 1. Editar k8s/infrastructure/argocd/applications/openpanel-app.yaml
 # 2. Cambiar targetRevision al tag deseado
 # 3. git add + commit + push → ArgoCD aplica el cambio
 
@@ -214,34 +270,41 @@ argocd app sync openpanel --force
 
 ## Gestión de Secrets con Sealed Secrets
 
-Los secrets no pueden almacenarse en texto plano en Git. Se utiliza Sealed Secrets para cifrarlos.
+Los secrets no pueden almacenarse en texto plano en Git. Se utiliza Sealed Secrets para cifrarlos con la clave pública RSA del clúster. Solo el controller del clúster puede descifrarlos.
 
-### Crear un nuevo Sealed Secret
+### Cómo se generan
 
-```bash
-# Crear un secret temporal (sin aplicarlo al clúster)
-kubectl create secret generic mi-secret \
-  --from-literal=password=miPassword123 \
-  --namespace openpanel \
-  --dry-run=client \
-  -o yaml | kubeseal \
-  --controller-namespace sealed-secrets \
-  --format yaml > k8s/argocd/sealed-secrets/mi-secret.yaml
+Todos los secrets del proyecto se gestionan en un único archivo por entorno:
 
-# Commitear el SealedSecret al repositorio
-git add k8s/argocd/sealed-secrets/mi-secret.yaml
-git commit -m "feat: add sealed secret for mi-secret"
-git push
+```
+k8s/infrastructure/overlays/staging/sealed-secrets/secrets.yaml
+k8s/infrastructure/overlays/prod/sealed-secrets/secrets.yaml
 ```
 
-### Estructura de secrets gestionados
+Para regenerar el archivo (p.ej. tras recrear el clúster o rotar credenciales):
 
-| Secret | Namespace | Contenido |
+```bash
+# Staging con valores por defecto del .secrets
+make reseal-secrets ENV=staging
+
+# Prod con credenciales fuertes
+make reseal-secrets ENV=prod \
+  POSTGRES_PASSWORD=xxx REDIS_PASSWORD=xxx CLICKHOUSE_PASSWORD=xxx \
+  API_SECRET=$(openssl rand -hex 32) GRAFANA_PASSWORD=xxx MINIO_PASSWORD=xxx
+```
+
+`make reseal-secrets` obtiene el certificado del controller, crea cada Secret en memoria con `kubectl create --dry-run`, lo cifra con `kubeseal`, y los escribe todos en el archivo. Es seguro commitear el resultado — los valores son blobs RSA-cifrados.
+
+### Secrets gestionados
+
+| Secret | Namespace destino | Contenido |
 |---|---|---|
-| `postgres-credentials` | openpanel | usuario y contraseña de PostgreSQL |
-| `redis-credentials` | openpanel | contraseña de Redis |
-| `clickhouse-credentials` | openpanel | usuario y contraseña de ClickHouse |
-| `openpanel-secrets` | openpanel | tokens y variables de la aplicación |
+| `postgres-credentials` | `openpanel` | usuario y contraseña de PostgreSQL |
+| `redis-credentials` | `openpanel` | contraseña de Redis |
+| `clickhouse-credentials` | `openpanel` | usuario y contraseña de ClickHouse |
+| `openpanel-secrets` | `openpanel` | DATABASE_URL, CLICKHOUSE_URL, REDIS_URL, API_SECRET |
+| `grafana-admin-credentials` | `observability` | usuario y contraseña de Grafana |
+| `minio-credentials` | `backup` | MINIO_ROOT_USER, MINIO_ROOT_PASSWORD |
 
 ---
 

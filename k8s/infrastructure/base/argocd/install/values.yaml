@@ -1,0 +1,44 @@
+# =============================================================================
+# ArgoCD — common Helm values (shared across all environments)
+#
+# Environment-specific overrides live in:
+#   overlays/staging/values.yaml  ← argocd.local, reduced resources
+#   overlays/prod/values.yaml     ← real hostname, TLS, larger resources
+# =============================================================================
+
+configs:
+  params:
+    # Disable TLS between ArgoCD components — TLS is terminated at the Ingress.
+    server.insecure: "true"
+  cm:
+    # Pass --enable-helm to every kustomize build ArgoCD runs.
+    # Required for helmChartInflationGenerator used in observability,
+    # sealed-secrets, and other overlays.
+    kustomize.buildOptions: "--enable-helm --load-restrictor LoadRestrictionsNone"
+
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

@@ -1,12 +1,19 @@
-# Secrets - NEVER commit
+# Plain secrets — NEVER commit (contain actual credentials in cleartext)
 .env
 .env.*
 *.pem
 *.key
 *.crt
 secrets/
+.secrets
 .secrets/
 credentials-velero
+terraform/environments/staging/credentials-velero
+
+# NOTE: k8s/infrastructure/overlays/*/sealed-secrets/secrets.yaml IS committed.
+# Those files contain SealedSecret resources — values are RSA-encrypted with the
+# cluster's public key and are completely safe to store in Git.
+# Only the Sealed Secrets controller (private key in cluster) can decrypt them.
 
 # Node
 node_modules/
@@ -31,10 +38,15 @@ kubeconfig
 *.bak
 *.backup
 
-# Terraform (not used but just in case)
+# Terraform
 .terraform/
 *.tfstate
 *.tfstate.*
+terraform.tfvars
+terraform.tfvars.json
+tfplan
+tfplan.bin
+tfplan.txt
 
 # Docker
 *.tar
