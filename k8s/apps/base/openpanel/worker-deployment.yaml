@@ -5,6 +5,9 @@ metadata:
   namespace: openpanel
   labels:
     app: openpanel-worker
+  annotations:
+    # Wave 10: run after migrations complete (wave 5) so the DB schema exists.
+    argocd.argoproj.io/sync-wave: "10"
 spec:
   replicas: 1
   selector:

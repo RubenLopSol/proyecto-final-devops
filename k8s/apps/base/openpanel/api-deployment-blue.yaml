@@ -6,6 +6,8 @@ metadata:
   labels:
     app: openpanel-api
     version: blue
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
 spec:
   replicas: 2
   selector:

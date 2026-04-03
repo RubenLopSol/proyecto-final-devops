@@ -190,7 +190,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: openpanel-migrate
+      job-name: openpanel-migrate
   policyTypes:
     - Egress
   egress:
@@ -221,4 +221,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [openpanel-api, openpanel-worker, openpanel-migrate]
+                values: [openpanel-api, openpanel-worker]
+        - podSelector:
+            matchLabels:
+              job-name: openpanel-migrate
