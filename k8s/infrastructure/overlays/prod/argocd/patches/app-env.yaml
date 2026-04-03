@@ -13,11 +13,38 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability
+  name: observability-prometheus
   namespace: argocd
 spec:
   source:
-    path: k8s/infrastructure/overlays/prod/observability
+    path: k8s/infrastructure/overlays/prod/observability/kube-prometheus-stack
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-loki
+  namespace: argocd
+spec:
+  source:
+    path: k8s/infrastructure/overlays/prod/observability/loki
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-promtail
+  namespace: argocd
+spec:
+  source:
+    path: k8s/infrastructure/overlays/prod/observability/promtail
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-tempo
+  namespace: argocd
+spec:
+  source:
+    path: k8s/infrastructure/overlays/prod/observability/tempo
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
