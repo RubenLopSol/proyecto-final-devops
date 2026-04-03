@@ -37,13 +37,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: velero
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: local-path-storage
-  labels:
-    app.kubernetes.io/part-of: local-path-provisioner
----
 # sealed-secrets: dedicated namespace for the Sealed Secrets controller.
 # The controller runs here; SealedSecret resources live in their target
 # namespaces (openpanel, observability, backup) — not in this namespace.

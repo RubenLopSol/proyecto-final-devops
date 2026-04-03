@@ -4,6 +4,7 @@ metadata:
   name: minio-data
   namespace: backup
 spec:
+  storageClassName: local-path
   resources:
     requests:
       storage: 5Gi

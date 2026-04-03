@@ -22,7 +22,7 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox:1.36.1
-          command: ["sh", "-c", "chown -R 1000:1000 /data && chmod 755 /data"]
+          command: ["sh", "-c", "chmod 755 /data && chown -R 1000:1000 /data"]
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
