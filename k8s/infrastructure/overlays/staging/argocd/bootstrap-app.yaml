@@ -29,6 +29,14 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
+  # ArgoCD strips empty maps (kustomize: {}) from its desired state during normalization,
+  # but the Kubernetes API server preserves them in the live state. This causes a
+  # permanent OutOfSync on Application CRs that have an empty kustomize source config.
+  ignoreDifferences:
+    - group: argoproj.io
+      kind: Application
+      jsonPointers:
+        - /spec/source/kustomize
   syncPolicy:
     automated:
       prune: true
