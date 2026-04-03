@@ -27,6 +27,14 @@ snapshotsEnabled: false
 # available on Docker Hub. CRDs are included via kustomize includeCRDs: true instead.
 upgradeCRDs: false
 
+# Prevent the Helm chart from creating a default BackupStorageLocation.
+# The BSL is managed declaratively by the 'velero' ArgoCD app so that
+# environment-specific config (bucket, endpoint) stays in the overlay.
+# Having both create the same resource causes ArgoCD SharedResourceWarning.
+configuration:
+  backupStorageLocation: []
+  volumeSnapshotLocation: []
+
 # Resource limits — sized for a minikube node; prod overlay increases these.
 resources:
   requests:

@@ -18,15 +18,9 @@ serviceAccount:
       # See terraform/environments/prod/outputs.tf → velero_role_arn
       eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/velero-prod-role"
 
-configuration:
-  backupStorageLocation:
-    - name: default
-      provider: aws
-      bucket: openpanel-velero-prod
-      default: true
-      config:
-        region: us-east-1
-        s3ForcePathStyle: "false"
+# BackupStorageLocation is managed declaratively by the 'velero' ArgoCD app
+# (k8s/infrastructure/overlays/prod/velero). Do not configure it here to
+# avoid SharedResourceWarning from two apps owning the same resource.
 
 resources:
   requests:
