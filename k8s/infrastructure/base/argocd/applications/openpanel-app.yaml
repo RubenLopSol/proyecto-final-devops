@@ -18,9 +18,13 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: openpanel
-  # volumeClaimTemplates.storageClassName is immutable once a StatefulSet is created.
-  # The staging overlay sets local-path but existing StatefulSets keep their original
-  # storageClass (standard). Ignore this field to stop ArgoCD from trying to patch it.
+  # volumeClaimTemplates is immutable once a StatefulSet is created.
+  # The staging overlay sets storageClassName: local-path, which is correct for
+  # fresh deploys (StatefulSets will be created with local-path from the start).
+  # For existing clusters bootstrapped before this patch was added, the StatefulSets
+  # retain their original storageClass and ArgoCD cannot patch the immutable field.
+  # TODO: remove this ignoreDifferences once staging is rebuilt from scratch —
+  # on a fresh cluster the field will match and this entry becomes a no-op.
   ignoreDifferences:
     - group: apps
       kind: StatefulSet
