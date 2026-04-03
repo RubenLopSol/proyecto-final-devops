@@ -9,8 +9,6 @@ prometheus:
     # 30-day retention for compliance and incident investigation
     retention: 30d
     replicas: 2
-    nodeSelector:
-      workload: observability
     resources:
       requests:
         cpu: 500m
@@ -27,8 +25,6 @@ prometheus:
 
 grafana:
   replicas: 2
-  nodeSelector:
-    workload: observability
   resources:
     requests:
       cpu: 100m
@@ -47,8 +43,6 @@ grafana:
 alertmanager:
   alertmanagerSpec:
     replicas: 2
-    nodeSelector:
-      workload: observability
     resources:
       requests:
         cpu: 50m

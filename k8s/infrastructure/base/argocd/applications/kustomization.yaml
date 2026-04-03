@@ -14,8 +14,10 @@ kind: Kustomization
 
 resources:
   - namespaces-app.yaml
+  - local-path-provisioner-app.yaml
   - sealed-secrets-app.yaml
   - observability-app.yaml
   - minio-app.yaml
+  - velero-operator-app.yaml
   - velero-app.yaml
   - openpanel-app.yaml

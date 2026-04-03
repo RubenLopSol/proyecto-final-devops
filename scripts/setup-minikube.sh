@@ -220,6 +220,21 @@ header "Creating namespaces"
 kubectl apply -f k8s/infrastructure/base/namespaces/namespaces.yaml
 kubectl get namespaces
 
+# ---------------------------------------------------------------------------
+# Install local-path-provisioner (Rancher) to provide a topology-aware
+# StorageClass "local-path". Unlike the default minikube hostpath provisioner
+# which creates all PV directories on the primary node, local-path creates the
+# directory on the node where the pod is actually scheduled — required for
+# nodeSelectors to work correctly with persistent storage in multi-node setups.
+# ---------------------------------------------------------------------------
+header "Installing local-path-provisioner (topology-aware PV provisioner)"
+kubectl apply -k k8s/infrastructure/base/local-path-provisioner
+kubectl wait deployment/local-path-provisioner \
+  -n local-path-storage \
+  --for=condition=available \
+  --timeout=90s
+success "local-path-provisioner installed — StorageClass 'local-path' is ready"
+
 MINIKUBE_IP=$(minikube ip --profile="${CLUSTER_NAME}")
 read -r FIRST_HOST _ <<< "$DNS_HOSTS"
 

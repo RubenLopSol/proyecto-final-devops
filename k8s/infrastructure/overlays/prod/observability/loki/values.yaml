@@ -24,8 +24,6 @@ loki:
 
 singleBinary:
   replicas: 2
-  nodeSelector:
-    workload: observability
   resources:
     requests:
       cpu: 200m

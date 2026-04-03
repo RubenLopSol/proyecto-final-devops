@@ -218,6 +218,23 @@ jobs:
       - name: Kustomize build — infra/observability/prod
         run: kustomize build --enable-helm --load-restrictor LoadRestrictionsNone k8s/infrastructure/overlays/prod/observability > /tmp/rendered-infra-obs-prod.yaml
 
+      # -----------------------------------------------------------------------
+      # infrastructure layer — velero-operator stack (Helm chart)
+      # -----------------------------------------------------------------------
+
+      - name: Kustomize build — infra/velero-operator/staging
+        run: kustomize build --enable-helm --load-restrictor LoadRestrictionsNone k8s/infrastructure/overlays/staging/velero-operator > /tmp/rendered-infra-velero-staging.yaml
+
+      - name: Kustomize build — infra/velero-operator/prod
+        run: kustomize build --enable-helm --load-restrictor LoadRestrictionsNone k8s/infrastructure/overlays/prod/velero-operator > /tmp/rendered-infra-velero-prod.yaml
+
+      # -----------------------------------------------------------------------
+      # infrastructure layer — local-path-provisioner (pure Kustomize)
+      # -----------------------------------------------------------------------
+
+      - name: Kustomize build — local-path-provisioner
+        run: kustomize build k8s/infrastructure/base/local-path-provisioner > /tmp/rendered-local-path.yaml
+
       - name: Kubeconform — schema validation (apps/staging)
         # -ignore-missing-schemas: skips CRDs not found in any schema source
         #   (SealedSecret, ArgoCD Application objects are not in this render path)
@@ -307,13 +324,49 @@ jobs:
             -kubernetes-version ${{ env.K8S_VERSION }} \
             /tmp/rendered-infra-obs-prod.yaml
 
-      # kube-linter is intentionally skipped for infra/observability because
-      # the rendered output is entirely third-party Helm charts (kube-prometheus-stack,
-      # loki, promtail, tempo). These charts produce sidecar containers, test pods,
-      # DaemonSets, and Jobs that do not set resource limits by design — kube-linter
-      # would generate ~60 false positives per environment. Schema validation (kubeconform)
-      # above already confirms the rendered YAML is structurally valid.
-      # Our own code (apps/, infra/staging, infra/prod) is fully covered by the steps above.
+      # kube-linter is intentionally skipped for infra/observability and
+      # infra/velero-operator because the rendered output is entirely third-party
+      # Helm charts. Schema validation (kubeconform) above already confirms
+      # structural validity. Our own code is fully covered by the steps above.
+
+      - name: Kubeconform — schema validation (infra/velero-operator/staging)
+        run: |
+          kubeconform \
+            -summary \
+            -verbose \
+            -strict \
+            -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -kubernetes-version ${{ env.K8S_VERSION }} \
+            /tmp/rendered-infra-velero-staging.yaml
+
+      - name: Kubeconform — schema validation (infra/velero-operator/prod)
+        run: |
+          kubeconform \
+            -summary \
+            -verbose \
+            -strict \
+            -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -kubernetes-version ${{ env.K8S_VERSION }} \
+            /tmp/rendered-infra-velero-prod.yaml
+
+      - name: Kubeconform — schema validation (local-path-provisioner)
+        run: |
+          kubeconform \
+            -summary \
+            -verbose \
+            -strict \
+            -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -kubernetes-version ${{ env.K8S_VERSION }} \
+            /tmp/rendered-local-path.yaml
+
+      - name: Kube-linter — best-practices checks (local-path-provisioner)
+        run: kube-linter lint /tmp/rendered-local-path.yaml --config .kube-linter.yaml
 
       - name: Hadolint — API Dockerfile
         run: hadolint --failure-threshold error openpanel/apps/api/Dockerfile

@@ -10,6 +10,10 @@
 prometheus:
   prometheusSpec:
     retention: 15d
+    # Pin Prometheus to the observability node group.
+    # Node is labelled workload=observability by scripts/setup-minikube.sh.
+    nodeSelector:
+      workload: observability
     resources:
       requests:
         cpu: 200m
@@ -105,6 +109,9 @@ grafana:
     userKey: admin-user
     passwordKey: admin-password
 
+  nodeSelector:
+    workload: observability
+
   resources:
     requests:
       cpu: 100m
@@ -152,6 +159,8 @@ grafana:
 alertmanager:
   enabled: true
   alertmanagerSpec:
+    nodeSelector:
+      workload: observability
     resources:
       requests:
         cpu: 50m

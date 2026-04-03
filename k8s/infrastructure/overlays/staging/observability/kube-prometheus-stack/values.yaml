@@ -18,6 +18,9 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         spec:
+          # local-path creates the PV directory on the node where the pod is scheduled,
+          # ensuring PVs land on the observability node (workload=observability nodeSelector).
+          storageClassName: local-path
           resources:
             requests:
               storage: 5Gi

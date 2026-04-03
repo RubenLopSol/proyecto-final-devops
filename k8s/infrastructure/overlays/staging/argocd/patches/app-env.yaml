@@ -35,6 +35,16 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: velero-operator
+  namespace: argocd
+spec:
+  source:
+    targetRevision: test/ci-pipeline-validation
+    path: k8s/infrastructure/overlays/staging/velero-operator
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: velero
   namespace: argocd
 spec:
@@ -51,6 +61,15 @@ spec:
   source:
     targetRevision: test/ci-pipeline-validation
     path: k8s/apps/overlays/staging
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: local-path-provisioner
+  namespace: argocd
+spec:
+  source:
+    targetRevision: test/ci-pipeline-validation
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

@@ -7,6 +7,9 @@
 
 singleBinary:
   replicas: 1
+  # local-path creates the PV directory on the node where the pod is scheduled.
+  persistence:
+    storageClass: local-path
   resources:
     requests:
       cpu: 50m
