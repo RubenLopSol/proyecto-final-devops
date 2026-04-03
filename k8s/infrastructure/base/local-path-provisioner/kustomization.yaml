@@ -19,3 +19,6 @@ kind: Kustomization
 
 resources:
   - local-path-storage.yaml
+
+patches:
+  - path: resources-patch.yaml

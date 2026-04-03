@@ -23,6 +23,10 @@ deployNodeAgent: true
 # Volume snapshots are not used — all backups go to object storage via restic/kopia.
 snapshotsEnabled: false
 
+# Disable the upgrade-crds pre-sync Job. It uses bitnami/kubectl:1.28 which is not
+# available on Docker Hub. CRDs are included via kustomize includeCRDs: true instead.
+upgradeCRDs: false
+
 # Resource limits — sized for a minikube node; prod overlay increases these.
 resources:
   requests:
