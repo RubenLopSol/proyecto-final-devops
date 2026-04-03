@@ -112,7 +112,7 @@ SEALED_SECRETS_SECRET_NAME ?= devops-cluster/sealed-secrets-master-key
 
 .PHONY: help all setup-github docker-login terraform-infra terraform-status cluster dns argocd \
         sealed-secrets reseal-secrets backup-sealing-key restore-sealing-key \
-        app observability backup status stop \
+        app observability backup velero-install status stop \
         restart destroy blue-green backup-run logs open clean clean-all \
         ensure-kustomize
 
@@ -700,6 +700,45 @@ observability: ensure-kustomize
 		k8s/infrastructure/overlays/$(ENV)/observability \
 		| kubectl apply -f -
 	$(call success,Observability stack deployed)
+
+velero-install:
+	$(call header,Installing Velero operator via Helm \(ENV=$(ENV)\))
+	@helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts 2>/dev/null || true
+	@helm repo update vmware-tanzu
+	$(call step,Installing Velero chart \(credentials from credentials-velero\))
+	@if [ "$(ENV)" = "staging" ]; then \
+		CRED_FILE="terraform/environments/staging/credentials-velero"; \
+		if [ ! -f "$$CRED_FILE" ]; then \
+			echo "$(RED)ERROR: $$CRED_FILE not found — run: make terraform-infra ENV=staging$(RESET)"; \
+			exit 1; \
+		fi; \
+		kubectl create namespace velero --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl create secret generic velero-credentials \
+			--namespace velero \
+			--from-file=cloud="$$CRED_FILE" \
+			--dry-run=client -o yaml | kubectl apply -f -; \
+		helm upgrade --install velero vmware-tanzu/velero \
+			--namespace velero \
+			--version "8.0.0" \
+			--set "configuration.backupStorageLocation[0].provider=aws" \
+			--set "configuration.backupStorageLocation[0].bucket=openpanel-velero-staging" \
+			--set "configuration.backupStorageLocation[0].config.region=us-east-1" \
+			--set "configuration.backupStorageLocation[0].config.s3ForcePathStyle=true" \
+			--set "configuration.backupStorageLocation[0].config.s3Url=http://localstack.backup.svc.cluster.local:4566" \
+			--set "credentials.existingSecret=velero-credentials" \
+			--set "deployNodeAgent=true" \
+			--set "snapshotsEnabled=false" \
+			--set "initContainers[0].name=velero-plugin-for-aws" \
+			--set "initContainers[0].image=velero/velero-plugin-for-aws:v1.9.0" \
+			--set "initContainers[0].volumeMounts[0].mountPath=/target" \
+			--set "initContainers[0].volumeMounts[0].name=plugins" \
+			--wait --timeout 5m; \
+	elif [ "$(ENV)" = "prod" ]; then \
+		echo "$(YELLOW)Prod Velero uses IRSA — apply via Terraform/Helm with correct IAM role ARN$(RESET)"; \
+	fi
+	$(call step,Waiting for Velero CRDs to become established)
+	@kubectl wait --for=condition=Established crd/backupstoragelocations.velero.io --timeout=120s
+	$(call success,Velero operator installed — run: make backup ENV=$(ENV))
 
 backup:
 	$(call header,Deploying backup stack \(ENV=$(ENV)\))

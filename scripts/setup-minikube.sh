@@ -201,6 +201,21 @@ kubectl get nodes -o wide
 wait_for_nodes
 label_nodes
 
+# ---------------------------------------------------------------------------
+# Set inotify limits on all nodes so Promtail (DaemonSet) can watch pod log
+# files without hitting the default kernel limit ("too many open files").
+# ---------------------------------------------------------------------------
+header "Configuring inotify limits (required for Promtail)"
+for node in $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); do
+  step "Setting inotify limits on ${node}"
+  minikube ssh -p "${CLUSTER_NAME}" -n "${node}" -- \
+    "sudo sysctl -w fs.inotify.max_user_instances=8192 fs.inotify.max_user_watches=524288" 2>/dev/null \
+    || minikube ssh -p "${CLUSTER_NAME}" -- \
+       "sudo sysctl -w fs.inotify.max_user_instances=8192 fs.inotify.max_user_watches=524288" 2>/dev/null \
+    || true
+done
+success "inotify limits configured on all nodes"
+
 header "Creating namespaces"
 kubectl apply -f k8s/infrastructure/base/namespaces/namespaces.yaml
 kubectl get namespaces
