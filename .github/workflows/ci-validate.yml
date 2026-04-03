@@ -213,10 +213,10 @@ jobs:
       # -----------------------------------------------------------------------
 
       - name: Kustomize build — infra/observability/staging
-        run: kustomize build --enable-helm k8s/infrastructure/overlays/staging/observability > /tmp/rendered-infra-obs-staging.yaml
+        run: kustomize build --enable-helm --load-restrictor LoadRestrictionsNone k8s/infrastructure/overlays/staging/observability > /tmp/rendered-infra-obs-staging.yaml
 
       - name: Kustomize build — infra/observability/prod
-        run: kustomize build --enable-helm k8s/infrastructure/overlays/prod/observability > /tmp/rendered-infra-obs-prod.yaml
+        run: kustomize build --enable-helm --load-restrictor LoadRestrictionsNone k8s/infrastructure/overlays/prod/observability > /tmp/rendered-infra-obs-prod.yaml
 
       - name: Kubeconform — schema validation (apps/staging)
         # -ignore-missing-schemas: skips CRDs not found in any schema source

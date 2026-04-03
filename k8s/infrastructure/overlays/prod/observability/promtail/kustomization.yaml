@@ -17,6 +17,6 @@ helmCharts:
     version: "6.16.4"
     releaseName: promtail
     namespace: observability
-    valuesFile: ../../../../../base/observability/promtail/values.yaml
+    valuesFile: ../../../../base/observability/promtail/values.yaml
     additionalValuesFiles:
       - values.yaml

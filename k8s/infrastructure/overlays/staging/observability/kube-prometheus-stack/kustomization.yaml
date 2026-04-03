@@ -20,6 +20,6 @@ helmCharts:
     releaseName: kube-prometheus-stack
     namespace: observability
     includeCRDs: true
-    valuesFile: ../../../../../base/observability/kube-prometheus-stack/values.yaml
+    valuesFile: ../../../../base/observability/kube-prometheus-stack/values.yaml
     additionalValuesFiles:
       - values.yaml

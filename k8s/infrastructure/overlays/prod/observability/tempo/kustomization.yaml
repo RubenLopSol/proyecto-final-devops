@@ -17,6 +17,6 @@ helmCharts:
     version: "1.10.3"
     releaseName: tempo
     namespace: observability
-    valuesFile: ../../../../../base/observability/tempo/values.yaml
+    valuesFile: ../../../../base/observability/tempo/values.yaml
     additionalValuesFiles:
       - values.yaml

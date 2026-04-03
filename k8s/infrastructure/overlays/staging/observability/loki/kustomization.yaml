@@ -16,6 +16,6 @@ helmCharts:
     version: "6.6.2"
     releaseName: loki
     namespace: observability
-    valuesFile: ../../../../../base/observability/loki/values.yaml
+    valuesFile: ../../../../base/observability/loki/values.yaml
     additionalValuesFiles:
       - values.yaml

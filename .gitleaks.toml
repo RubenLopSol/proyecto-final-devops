@@ -1,17 +1,20 @@
-title = "Gitleaks config — OpenPanel DevOps Project"
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks#configuration
+
+title = "gitleaks config"
 
 [extend]
-# Usar las reglas por defecto de gitleaks
+# Use the default gitleaks ruleset as the base
 useDefault = true
 
-# Ignorar directorios que contienen datos cifrados (Sealed Secrets)
-# Los SealedSecrets son blobs cifrados con la clave pública del clúster
-# y no contienen credenciales en texto plano
+# Allowlist paths that contain known false positives.
+# These are Helm chart source files (documentation, example values) that were
+# accidentally committed before k8s/**/charts/ was added to .gitignore.
+# The charts/ directories are kustomize's local Helm cache — equivalent to
+# node_modules — and contain example/dummy RSA keys in their README and values
+# files, not real secrets.
 [allowlist]
-description = "Allowlist para datos cifrados y credenciales de test"
+description = "Helm chart cache false positives"
 paths = [
-  # SealedSecrets: datos cifrados, no son secretos reales
-  "k8s/infrastructure/base/sealed-secrets/secrets\\.yaml",
-  # Terraform LocalStack: credenciales fijas de test (access_key = "test")
-  "terraform/localstack/.*\\.tf",
+  '''k8s/.*/charts/.*''',
 ]
