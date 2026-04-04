@@ -58,16 +58,6 @@ singleBinary:
     limits:
       cpu: 500m
       memory: 512Mi
-  # Default timeoutSeconds: 1 is too short — the /ready endpoint queries
-  # ring state and can take several seconds when the ingester is warming up.
-  readinessProbe:
-    httpGet:
-      path: /ready
-      port: http-metrics
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 5
 
 # Desactivar componentes de modo distribuido (no necesarios en local)
 read:
