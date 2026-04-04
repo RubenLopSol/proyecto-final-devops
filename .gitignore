@@ -64,3 +64,6 @@ GUIA_PASO_A_PASO.md
 review.md
 audit.md
 fixed.md
+
+# Grafana dashboard JSON exports — local reference only, not part of GitOps
+grafana-dashboards/

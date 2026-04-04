@@ -16,12 +16,14 @@
 #   postgres  → postgres-exporter  on :9187
 #   redis     → redis-exporter     on :9121
 #   clickhouse → native /metrics   on :9363
+#
+# relabelings: copy the pod's `app` label into the scraped metric labels so
+# that up{app="openpanel-api"}, up{app="postgres"} etc. work as expected.
+# Without this, the Prometheus Operator drops pod labels from metric labels.
 # =============================================================================
 
 ---
 # OpenPanel API — prom-client Node.js metrics + HTTP RED metrics
-# Scrapes both blue and green pods via app=openpanel-api selector,
-# independent of which version is receiving live traffic.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -42,6 +44,11 @@ spec:
       interval: 15s
       scrapeTimeout: 10s
       path: /metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: app
+        - sourceLabels: [__meta_kubernetes_pod_label_version]
+          targetLabel: version
 
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -64,6 +71,9 @@ spec:
       interval: 30s
       scrapeTimeout: 10s
       path: /metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: app
 
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -86,6 +96,9 @@ spec:
       interval: 30s
       scrapeTimeout: 10s
       path: /metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: app
 
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -108,3 +121,6 @@ spec:
       interval: 30s
       scrapeTimeout: 10s
       path: /metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: app
