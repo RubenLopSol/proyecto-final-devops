@@ -13,7 +13,7 @@ loki:
   storage:
     type: filesystem
   # schema_config is required by Loki chart >= 6.0.
-  # Without it the Helm template fails to render and ArgoCD shows Unknown sync status.
+  # Without it the Helm template fails to render.
   # v13 + tsdb is the current recommended schema for new installations.
   schemaConfig:
     configs:
@@ -26,14 +26,10 @@ loki:
           period: 24h
 
   # structuredConfig is merged on top of the chart-generated loki config.
-  # This is the correct way to override ring and memberlist settings —
-  # setting them directly under loki.ingester/distributor/ruler does NOT
-  # work because the chart generates those sections from its own templates.
-  #
-  # With replication_factor=1 and a single StatefulSet pod, memberlist gossip
-  # causes a ring deadlock on pod restart: the pod gets the same IP, the
-  # old unhealthy ring entry persists, and the readiness probe never passes.
-  # Switching all rings to kvstore: inmemory eliminates gossip entirely.
+  # With replication_factor=1 and a single pod, memberlist causes a ring
+  # deadlock on pod restart (same IP reused, stale entry persists).
+  # All rings are switched to inmemory; join_members cleared so loki does
+  # not attempt gossip with no peers available.
   structuredConfig:
     ingester:
       lifecycler:
@@ -48,9 +44,6 @@ loki:
       ring:
         kvstore:
           store: inmemory
-    # join_members overrides the chart-hardcoded loki-memberlist headless
-    # service entry. With all rings inmemory, memberlist has no peers to
-    # join and will succeed immediately without gossip.
     memberlist:
       join_members: []
 
@@ -61,10 +54,20 @@ singleBinary:
   resources:
     requests:
       cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 200m
       memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Default timeoutSeconds: 1 is too short — the /ready endpoint queries
+  # ring state and can take several seconds when the ingester is warming up.
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http-metrics
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
 
 # Desactivar componentes de modo distribuido (no necesarios en local)
 read:
