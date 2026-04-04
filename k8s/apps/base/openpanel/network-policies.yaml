@@ -28,7 +28,7 @@ spec:
         - protocol: TCP
           port: 53
 ---
-# API: allow ingress from Ingress Controller and from Start
+# API: allow ingress from Ingress Controller, from Start, and from Prometheus scraping
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -48,6 +48,13 @@ spec:
         - podSelector:
             matchLabels:
               app: openpanel-start
+      ports:
+        - port: 3000
+    # Allow Prometheus to scrape /metrics on :3000
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
       ports:
         - port: 3000
 ---
