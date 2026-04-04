@@ -38,6 +38,8 @@ resources:
   # Networking
   - ingress.yaml
   - network-policies.yaml
+  # Observability — ServiceMonitors picked up by Prometheus Operator
+  - servicemonitors.yaml
 
 labels:
   - pairs:

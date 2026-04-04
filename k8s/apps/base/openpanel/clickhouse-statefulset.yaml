@@ -16,8 +16,8 @@ spec:
       labels:
         app: clickhouse
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9363"
+        # Scraping is handled by the clickhouse ServiceMonitor; annotation disabled to avoid duplicates.
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         runAsNonRoot: true

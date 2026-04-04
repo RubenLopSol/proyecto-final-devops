@@ -158,6 +158,92 @@ grafana:
         serviceMap:
           datasourceUid: prometheus
 
+  # --------------------------------------------------------------------------
+  # Grafana sidecar — discover dashboard ConfigMaps across all namespaces.
+  # Any ConfigMap labelled `grafana_dashboard: "1"` is auto-loaded.
+  # --------------------------------------------------------------------------
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+      label: grafana_dashboard
+      labelValue: "1"
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+
+  # --------------------------------------------------------------------------
+  # Dashboards imported from grafana.com at Grafana startup.
+  # Each entry sets a datasource variable so panels bind to the right source.
+  #
+  # CLUSTER VIEW
+  #   15760 — Kubernetes / Views / Global  (top-level cluster overview)
+  #   1860  — Node Exporter Full           (per-node CPU/mem/disk/network)
+  #   7249  — Kubernetes Cluster           (namespace resource breakdown)
+  #   3119  — Kubernetes cluster monitoring (pod & container drill-down)
+  #
+  # OPENPANEL APPLICATION VIEW
+  #   9628  — PostgreSQL Database          (postgres_exporter metrics)
+  #   11835 — Redis Dashboard              (redis_exporter metrics)
+  #   13502 — ClickHouse Overview          (native ClickHouse metrics)
+  # --------------------------------------------------------------------------
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: cluster
+          orgId: 1
+          folder: "Cluster"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/cluster
+        - name: openpanel
+          orgId: 1
+          folder: "OpenPanel"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/openpanel
+
+  dashboards:
+    cluster:
+      kubernetes-global:
+        gnetId: 15760
+        revision: 37
+        datasource:
+          - name: DS_PROMETHEUS
+            value: Prometheus
+      node-exporter-full:
+        gnetId: 1860
+        revision: 37
+        datasource:
+          - name: DS_PROMETHEUS
+            value: Prometheus
+      kubernetes-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+      kubernetes-pods:
+        gnetId: 3119
+        revision: 2
+        datasource: Prometheus
+    openpanel:
+      postgres:
+        gnetId: 9628
+        revision: 7
+        datasource: Prometheus
+      redis:
+        gnetId: 11835
+        revision: 1
+        datasource: Prometheus
+      clickhouse:
+        gnetId: 13502
+        revision: 2
+        datasource: Prometheus
+
 # ----------------------------------------------------------------------------
 # AlertManager
 # ----------------------------------------------------------------------------

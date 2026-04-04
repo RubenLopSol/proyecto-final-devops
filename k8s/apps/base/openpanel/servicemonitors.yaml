@@ -1,0 +1,79 @@
+# =============================================================================
+# ServiceMonitors — OpenPanel application components
+#
+# Prometheus Operator discovers these CRs and adds scrape targets.
+# The label `release: kube-prometheus-stack` must match the Prometheus CR's
+# serviceMonitorSelector.matchLabels so the operator picks them up.
+#
+# Metrics ports must be defined on the corresponding Services.
+# Each exporter runs as a sidecar inside the same pod as the main container:
+#   postgres  → postgres-exporter  on :9187
+#   redis     → redis-exporter     on :9121
+#   clickhouse → native /metrics   on :9363
+# =============================================================================
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-exporter
+  namespace: openpanel
+  labels:
+    app: postgres
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  namespaceSelector:
+    matchNames:
+      - openpanel
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      path: /metrics
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-exporter
+  namespace: openpanel
+  labels:
+    app: redis
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  namespaceSelector:
+    matchNames:
+      - openpanel
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      path: /metrics
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: clickhouse
+  namespace: openpanel
+  labels:
+    app: clickhouse
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: clickhouse
+  namespaceSelector:
+    matchNames:
+      - openpanel
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      path: /metrics

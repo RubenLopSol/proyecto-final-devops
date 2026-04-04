@@ -15,8 +15,8 @@ spec:
       labels:
         app: redis
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9121"
+        # Scraping is handled by the redis-exporter ServiceMonitor; annotation disabled to avoid duplicates.
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         runAsNonRoot: true

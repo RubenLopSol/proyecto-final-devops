@@ -16,5 +16,9 @@ spec:
       targetPort: 9000
       protocol: TCP
       name: native
+    - port: 9363
+      targetPort: 9363
+      protocol: TCP
+      name: metrics
   selector:
     app: clickhouse

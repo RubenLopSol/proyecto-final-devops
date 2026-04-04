@@ -16,8 +16,8 @@ spec:
       labels:
         app: postgres
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9187"
+        # Scraping is handled by the postgres-exporter ServiceMonitor; annotation disabled to avoid duplicates.
+        prometheus.io/scrape: "false"
     spec:
       securityContext:
         fsGroup: 999
