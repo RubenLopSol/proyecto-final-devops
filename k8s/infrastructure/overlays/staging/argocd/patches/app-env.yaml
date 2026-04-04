@@ -15,7 +15,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability-prometheus
+  name: prometheus
   namespace: argocd
 spec:
   source:
@@ -25,7 +25,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability-loki
+  name: loki
   namespace: argocd
 spec:
   source:
@@ -35,7 +35,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability-promtail
+  name: promtail
   namespace: argocd
 spec:
   source:
@@ -45,7 +45,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability-tempo
+  name: tempo
   namespace: argocd
 spec:
   source:

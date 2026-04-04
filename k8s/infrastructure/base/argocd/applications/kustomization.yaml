@@ -16,10 +16,10 @@ resources:
   - namespaces-app.yaml
   - local-path-provisioner-app.yaml
   - sealed-secrets-app.yaml
-  - observability-prometheus-app.yaml
-  - observability-loki-app.yaml
-  - observability-promtail-app.yaml
-  - observability-tempo-app.yaml
+  - prometheus-app.yaml
+  - loki-app.yaml
+  - promtail-app.yaml
+  - tempo-app.yaml
   - minio-app.yaml
   - velero-operator-app.yaml
   - velero-app.yaml

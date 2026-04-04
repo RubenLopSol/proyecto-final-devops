@@ -12,6 +12,23 @@ loki:
     replication_factor: 1
   storage:
     type: filesystem
+  # Use in-memory ring for all components. With replication_factor=1 and a
+  # single StatefulSet pod, memberlist gossip is unnecessary and causes a
+  # ring deadlock on pod restarts (stale unhealthy entry blocks readiness
+  # indefinitely because the restarted pod gets the same IP).
+  ingester:
+    lifecycler:
+      ring:
+        kvstore:
+          store: inmemory
+  distributor:
+    ring:
+      kvstore:
+        store: inmemory
+  ruler:
+    ring:
+      kvstore:
+        store: inmemory
   # schema_config is required by Loki chart >= 6.0.
   # Without it the Helm template fails to render and ArgoCD shows Unknown sync status.
   # v13 + tsdb is the current recommended schema for new installations.
