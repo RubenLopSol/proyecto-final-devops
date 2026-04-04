@@ -1,6 +1,12 @@
 # =============================================================================
 # ServiceMonitors — OpenPanel application components
 #
+# openpanel-api: Node.js app exposing prom-client metrics on :3000/metrics
+#   - http_request_duration_seconds{method, route, status_code} — histogram (RED)
+#   - nodejs_eventloop_lag_* — event loop health
+#   - nodejs_heap_size_used_bytes — memory pressure
+#   - process_cpu_seconds_total — CPU usage
+#
 # Prometheus Operator discovers these CRs and adds scrape targets.
 # The label `release: kube-prometheus-stack` must match the Prometheus CR's
 # serviceMonitorSelector.matchLabels so the operator picks them up.
@@ -11,6 +17,31 @@
 #   redis     → redis-exporter     on :9121
 #   clickhouse → native /metrics   on :9363
 # =============================================================================
+
+---
+# OpenPanel API — prom-client Node.js metrics + HTTP RED metrics
+# Scrapes both blue and green pods via app=openpanel-api selector,
+# independent of which version is receiving live traffic.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openpanel-api
+  namespace: openpanel
+  labels:
+    app: openpanel-api
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: openpanel-api
+  namespaceSelector:
+    matchNames:
+      - openpanel
+  endpoints:
+    - port: metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
 
 ---
 apiVersion: monitoring.coreos.com/v1

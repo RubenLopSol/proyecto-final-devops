@@ -12,6 +12,10 @@ spec:
       targetPort: 3000
       protocol: TCP
       name: http
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: metrics
   selector:
     app: openpanel-api
     version: blue

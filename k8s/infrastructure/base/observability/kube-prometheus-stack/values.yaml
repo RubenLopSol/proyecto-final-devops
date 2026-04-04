@@ -61,26 +61,52 @@ additionalPrometheusRulesMap:
       - name: openpanel-alerts
         rules:
           - alert: ServiceDown
-            expr: up{job=~".*openpanel.*"} == 0
+            # Matches the ServiceMonitor job name: openpanel/openpanel-api
+            expr: up{job="openpanel-api",namespace="openpanel"} == 0
             for: 2m
             labels:
               severity: critical
             annotations:
-              summary: "Service {{ $labels.job }} is down"
-              description: "{{ $labels.job }} has been unreachable for more than 2 minutes."
+              summary: "OpenPanel API is down"
+              description: "OpenPanel API has been unreachable for more than 2 minutes."
 
           - alert: HighErrorRate
+            # http_request_duration_seconds is the metric from prom-client with labels
+            # method, route, status_code. Count 5xx rate vs total.
             expr: >
-              sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+              sum(rate(http_request_duration_seconds_count{status_code=~"5..",namespace="openpanel"}[5m])) by (job)
               /
-              sum(rate(http_requests_total[5m])) by (job)
+              sum(rate(http_request_duration_seconds_count{namespace="openpanel"}[5m])) by (job)
               > 0.05
             for: 5m
             labels:
               severity: critical
             annotations:
               summary: "High error rate on {{ $labels.job }}"
-              description: "Error rate above 5% for more than 5 minutes."
+              description: "HTTP 5xx error rate above 5% for more than 5 minutes."
+
+          - alert: APIHighLatency
+            # P99 latency above 2 seconds for 5 minutes
+            expr: >
+              histogram_quantile(0.99,
+                sum(rate(http_request_duration_seconds_bucket{namespace="openpanel"}[5m])) by (job, le)
+              ) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High P99 latency on {{ $labels.job }}"
+              description: "P99 request latency is above 2s for more than 5 minutes."
+
+          - alert: NodeJSEventLoopLag
+            # Event loop lag above 500ms means the JS thread is saturated
+            expr: nodejs_eventloop_lag_p99_seconds{namespace="openpanel"} > 0.5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node.js event loop lag on {{ $labels.pod }}"
+              description: "P99 event loop lag exceeds 500ms — API may be CPU-starved."
 
           - alert: HighMemoryUsage
             expr: >
@@ -231,6 +257,12 @@ grafana:
         revision: 2
         datasource: Prometheus
     openpanel:
+      # Node.js API — prom-client standard metrics + HTTP RED metrics
+      # Labels: method, route, status_code on http_request_duration_seconds
+      openpanel-api-nodejs:
+        gnetId: 11159
+        revision: 1
+        datasource: Prometheus
       postgres:
         gnetId: 9628
         revision: 7
