@@ -12,25 +12,6 @@ loki:
     replication_factor: 1
   storage:
     type: filesystem
-  # Use in-memory ring for ALL components. With replication_factor=1 and a
-  # single StatefulSet pod, memberlist gossip is unnecessary and causes a
-  # ring deadlock on pod restarts (stale unhealthy entry blocks readiness
-  # indefinitely because the restarted pod gets the same IP).
-  # Every component that exposes a ring must be listed here; missing one
-  # leaves it on the memberlist default and re-introduces the deadlock.
-  ingester:
-    lifecycler:
-      ring:
-        kvstore:
-          store: inmemory
-  distributor:
-    ring:
-      kvstore:
-        store: inmemory
-  ruler:
-    ring:
-      kvstore:
-        store: inmemory
   # schema_config is required by Loki chart >= 6.0.
   # Without it the Helm template fails to render and ArgoCD shows Unknown sync status.
   # v13 + tsdb is the current recommended schema for new installations.
@@ -44,6 +25,35 @@ loki:
           prefix: index_
           period: 24h
 
+  # structuredConfig is merged on top of the chart-generated loki config.
+  # This is the correct way to override ring and memberlist settings —
+  # setting them directly under loki.ingester/distributor/ruler does NOT
+  # work because the chart generates those sections from its own templates.
+  #
+  # With replication_factor=1 and a single StatefulSet pod, memberlist gossip
+  # causes a ring deadlock on pod restart: the pod gets the same IP, the
+  # old unhealthy ring entry persists, and the readiness probe never passes.
+  # Switching all rings to kvstore: inmemory eliminates gossip entirely.
+  structuredConfig:
+    ingester:
+      lifecycler:
+        ring:
+          kvstore:
+            store: inmemory
+    distributor:
+      ring:
+        kvstore:
+          store: inmemory
+    ruler:
+      ring:
+        kvstore:
+          store: inmemory
+    # join_members overrides the chart-hardcoded loki-memberlist headless
+    # service entry. With all rings inmemory, memberlist has no peers to
+    # join and will succeed immediately without gossip.
+    memberlist:
+      join_members: []
+
 singleBinary:
   replicas: 1
   nodeSelector:
@@ -55,12 +65,6 @@ singleBinary:
     limits:
       cpu: 200m
       memory: 256Mi
-
-# Disable memberlist gossip — all rings use inmemory, so there are no peers to join.
-# Without this, Loki still initialises memberlist and may attempt to connect to
-# the loki-memberlist headless service, causing noise in logs.
-memberlist:
-  join_members: []
 
 # Desactivar componentes de modo distribuido (no necesarios en local)
 read:
