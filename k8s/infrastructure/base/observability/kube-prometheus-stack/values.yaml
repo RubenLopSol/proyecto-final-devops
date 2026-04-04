@@ -8,6 +8,11 @@
 # Prometheus
 # ----------------------------------------------------------------------------
 prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.local
   prometheusSpec:
     retention: 15d
     # Pin Prometheus to the observability node group.
@@ -152,19 +157,6 @@ grafana:
           tags: ["job", "namespace", "pod"]
         serviceMap:
           datasourceUid: prometheus
-
-# ----------------------------------------------------------------------------
-# Prometheus
-# ----------------------------------------------------------------------------
-prometheus:
-  ingress:
-    enabled: true
-    ingressClassName: nginx
-    hosts:
-      - prometheus.local
-  prometheusSpec:
-    nodeSelector:
-      workload: observability
 
 # ----------------------------------------------------------------------------
 # AlertManager
