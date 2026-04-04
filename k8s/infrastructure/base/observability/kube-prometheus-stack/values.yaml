@@ -239,10 +239,14 @@ grafana:
         gnetId: 11835
         revision: 1
         datasource: Prometheus
+      # ClickHouse native Prometheus endpoint (:9363) — metrics like
+      # ClickHouseMetrics_*, ClickHouseProfileEvents_*, ClickHouseAsyncMetrics_*
       clickhouse:
-        gnetId: 13502
-        revision: 2
-        datasource: Prometheus
+        gnetId: 14192
+        revision: 3
+        datasource:
+          - name: DS_PROMETHEUS
+            value: Prometheus
 
 # ----------------------------------------------------------------------------
 # AlertManager
