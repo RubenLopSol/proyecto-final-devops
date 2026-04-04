@@ -106,43 +106,38 @@ kubectl apply -f k8s/infrastructure/argocd/bootstrap-app.yaml
 
 ![ArgoCD — Deployed resources of the openpanel application](../screenshots/argocd-openpanel-resources.png)
 
-7 ArgoCD applications are managed:
+**12 ArgoCD applications** are managed, organised in layers:
 
-| Application | Source (Git path) | Target namespace | Sync | Wave |
-|---|---|---|---|---|
-| `bootstrap` | `k8s/infrastructure/argocd/applications/` | `argocd` | Automatic | — |
-| `namespaces` | `k8s/infrastructure/base/namespaces` | `argocd` | Automatic | 0 |
-| `sealed-secrets` | `k8s/infrastructure/overlays/staging/sealed-secrets` | `sealed-secrets` | Automatic | 1 |
-| `observability` | `k8s/infrastructure/overlays/staging/observability` | `observability` | Automatic | 2 |
-| `minio` | `k8s/infrastructure/overlays/staging/minio` | `backup` | Automatic | 2 |
-| `velero` | `k8s/infrastructure/overlays/staging/velero` | `velero` | Automatic | 2 |
-| `openpanel` | `k8s/apps/overlays/staging` | `openpanel` | Automatic | 3 |
+| Application | Source (Git path) | Target namespace | Wave |
+|---|---|---|---|
+| `bootstrap` | `k8s/infrastructure/overlays/staging/argocd` | `argocd` | — |
+| `namespaces` | `k8s/infrastructure/base/namespaces` | `kube-system` | 0 |
+| `sealed-secrets` | `k8s/infrastructure/overlays/staging/sealed-secrets` | `sealed-secrets` | 1 |
+| `local-path-provisioner` | `k8s/infrastructure/base/local-path-provisioner` | `local-path-storage` | 1 |
+| `prometheus` | `k8s/infrastructure/overlays/staging/observability/kube-prometheus-stack` | `observability` | 2 |
+| `minio` | `k8s/infrastructure/overlays/staging/minio` | `backup` | 2 |
+| `velero-operator` | `k8s/infrastructure/overlays/staging/velero-operator` | `velero` | 2 |
+| `loki` | `k8s/infrastructure/overlays/staging/observability/loki` | `observability` | 3 |
+| `promtail` | `k8s/infrastructure/overlays/staging/observability/promtail` | `observability` | 3 |
+| `tempo` | `k8s/infrastructure/overlays/staging/observability/tempo` | `observability` | 3 |
+| `velero` | `k8s/infrastructure/overlays/staging/velero` | `velero` | 3 |
+| `openpanel` | `k8s/apps/overlays/staging` | `openpanel` | 4 |
 
-The `observability` app uses **kustomize + helmChartInflationGenerator** (`--enable-helm`): the overlay renders all four charts (kube-prometheus-stack, loki, promtail, tempo) with repository values in a single `kustomize build` pass. ArgoCD passes `buildOptions: "--enable-helm"` when calling kustomize.
+The observability stack is **split into 4 independent apps** instead of a single aggregator. Each manages one Helm chart, using `kustomize build --enable-helm` with base + overlay values files.
 
-The `sealed-secrets` app also uses `--enable-helm` to render the controller chart, and additionally includes the `secrets.yaml` file with the encrypted SealedSecrets.
+The `sealed-secrets` app also uses `--enable-helm` to render the controller chart, and includes the `secrets.yaml` file with encrypted SealedSecrets.
 
 ### Deployment order — Sync Waves
-
-All six Application CRs carry an `argocd.argoproj.io/sync-wave` annotation. ArgoCD will not begin a wave until every resource in the previous wave is `Healthy`. This enforces the platform-before-workload ordering:
-
-```yaml
-metadata:
-  annotations:
-    argocd.argoproj.io/sync-wave: "0"   # namespaces
-    argocd.argoproj.io/sync-wave: "1"   # sealed-secrets
-    argocd.argoproj.io/sync-wave: "2"   # observability, minio, velero
-    argocd.argoproj.io/sync-wave: "3"   # openpanel
-```
 
 | Wave | Apps | Reason |
 |---|---|---|
 | 0 | `namespaces` | All namespaces must exist before any app deploys into them |
-| 1 | `sealed-secrets` | Controller must be running and Secrets decrypted before pods read credentials |
-| 2 | `observability`, `minio`, `velero` | Platform layer: Prometheus, Grafana, Loki, Tempo, MinIO, and Velero CRDs ready |
-| 3 | `openpanel` | App lands on a cluster with full observability, secrets, and backup already operational |
+| 1 | `sealed-secrets`, `local-path-provisioner` | Secrets controller and StorageClass ready before any workload |
+| 2 | `prometheus`, `minio`, `velero-operator` | `prometheus` installs Prometheus Operator CRDs (ServiceMonitor, PrometheusRule); required by wave 3 |
+| 3 | `loki`, `promtail`, `tempo`, `velero` | Depend on CRDs from wave 2; full observability stack ready before the application |
+| 4 | `openpanel` | App lands on a cluster with full observability, secrets, and backup already operational |
 
-This means OpenPanel pods start with Prometheus already scraping, Promtail already collecting logs, and Grafana already running — there are no gaps in metrics or log history from day one.
+OpenPanel pods start with Prometheus already scraping via ServiceMonitors, Promtail already collecting logs, and Grafana already running — no gaps in metrics or log history from day one.
 
 ### Automatic sync configuration
 

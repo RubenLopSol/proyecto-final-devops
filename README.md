@@ -188,13 +188,14 @@ kubectl apply -f k8s/infrastructure/backup/velero/schedule.yaml
 
 ### Acceso a los servicios
 
-| Servicio | URL |
-|---|---|
-| Dashboard | http://openpanel.local |
-| API | http://api.openpanel.local |
-| ArgoCD | http://argocd.local |
-| Grafana | http://grafana.local |
-| Prometheus | http://prometheus.local |
+| Servicio | URL | Credenciales |
+|---|---|---|
+| Dashboard | http://openpanel.local | (asistente de primer arranque) |
+| API | http://api.openpanel.local | — |
+| ArgoCD | http://argocd.local | admin / ver secret `argocd-initial-admin-secret` |
+| Grafana | http://grafana.local | admin / admin |
+| Prometheus | http://prometheus.local | — |
+| AlertManager | http://alertmanager.local | — |
 
 ```bash
 # Abrir todas las UIs de una vez

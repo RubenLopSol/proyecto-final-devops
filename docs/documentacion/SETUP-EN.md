@@ -131,17 +131,24 @@ The `install-argocd.sh` script already applies the project and bootstrap automat
 
 ArgoCD will automatically sync all applications defined in `k8s/infrastructure/argocd/applications/`:
 
-| Application | What it deploys | Method |
+**12 ArgoCD applications** are managed, organised into sync waves to guarantee deployment order:
+
+| Application | What it deploys | Wave |
 |---|---|---|
-| `namespaces` | All cluster namespaces | Kustomize |
-| `openpanel` | API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis | Kustomize |
-| `observability` | Prometheus, Grafana, Loki, Promtail, Tempo | Kustomize + Helm (`--enable-helm`) |
-| `minio` | MinIO Deployment + PVC | Kustomize |
-| `velero` | BackupStorageLocation + daily Schedule | Kustomize |
-| `sealed-secrets` | Controller + encrypted SealedSecrets | Kustomize + Helm (`--enable-helm`) |
+| `namespaces` | All cluster namespaces | 0 |
+| `sealed-secrets` | Controller + encrypted SealedSecrets | 1 |
+| `local-path-provisioner` | Local StorageClass | 1 |
+| `prometheus` | Prometheus + Grafana + AlertManager + rules + dashboards | 2 |
+| `minio` | MinIO Deployment + PVC | 2 |
+| `velero-operator` | Velero Operator CRDs | 2 |
+| `loki` | Loki (log aggregation) | 3 |
+| `promtail` | Promtail DaemonSet (log collection) | 3 |
+| `tempo` | Tempo (distributed tracing) | 3 |
+| `velero` | BackupStorageLocation + daily Schedule | 3 |
+| `openpanel` | API, Dashboard, Worker, PostgreSQL, ClickHouse, Redis | 4 |
 
 ```bash
-# Wait for ArgoCD to sync (may take 1-2 minutes)
+# Wait for ArgoCD to sync (may take 3-5 minutes for all waves)
 kubectl get applications -n argocd -w
 ```
 
@@ -149,7 +156,8 @@ To manually sync a specific application:
 
 ```bash
 argocd app sync openpanel
-argocd app sync observability
+argocd app sync prometheus
+argocd app sync loki
 ```
 
 ---
@@ -175,9 +183,11 @@ This applies the `minio` overlay in the `backup` namespace and the `velero` over
 minikube ip -p devops-cluster
 
 # Add to /etc/hosts (replace with the obtained IP)
-echo "$(minikube ip -p devops-cluster) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local" \
+echo "$(minikube ip -p devops-cluster) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local alertmanager.local" \
   | sudo tee -a /etc/hosts
 ```
+
+> The `setup-minikube.sh` script already does this automatically when it finishes.
 
 ### Access URLs
 
@@ -185,9 +195,10 @@ echo "$(minikube ip -p devops-cluster) openpanel.local api.openpanel.local argoc
 |---|---|---|
 | Dashboard | http://openpanel.local | — |
 | API | http://api.openpanel.local | — |
-| ArgoCD | http://argocd.local | admin / (see step 4) |
-| Grafana | http://grafana.local | admin / admin123 |
+| ArgoCD | http://argocd.local | admin / see secret `argocd-initial-admin-secret` |
+| Grafana | http://grafana.local | admin / admin |
 | Prometheus | http://prometheus.local | — |
+| AlertManager | http://alertmanager.local | — |
 
 ---
 

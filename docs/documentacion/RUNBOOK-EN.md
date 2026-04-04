@@ -156,38 +156,53 @@ kubectl logs -n observability -l app.kubernetes.io/name=prometheus --tail=20
 
 ## 5. Alert: Service Down
 
-**Alerts:** `APIDown`, `RedisDown`, `PostgreSQLDown`
+**Alert:** `ServiceDown` — `up{job="openpanel-api",namespace="openpanel"} == 0` for 2 minutes.
+
+All openpanel component scraping is managed via Prometheus Operator ServiceMonitors. If a target goes down:
 
 ```bash
-# 1. Verify pod status
+# 1. Check targets in Prometheus
+# http://prometheus.local/targets  (or with port-forward)
+kubectl port-forward svc/kube-prometheus-stack-prometheus -n observability 9090:9090
+# Open http://localhost:9090/targets and find the down target
+
+# 2. Verify pod status
 kubectl get pods -n openpanel -l app=<service>
 
-# 2. If the pod does not exist or is in error:
+# 3. If the pod does not exist or is in error:
 kubectl describe pod -n openpanel -l app=<service>
 kubectl logs -n openpanel -l app=<service> --previous
 
-# 3. Force pod recreation
+# 4. Force pod recreation
 kubectl delete pod -n openpanel -l app=<service>
 
-# 4. If it is a StatefulSet (postgres, clickhouse):
+# 5. If it is a StatefulSet (postgres, clickhouse):
 kubectl rollout restart statefulset/<name> -n openpanel
 
-# 5. Verify in Prometheus that the target returns to UP
-# http://localhost:9090/targets (after port-forward)
+# 6. Verify ServiceMonitor is active
+kubectl get servicemonitor -n openpanel
+kubectl describe servicemonitor openpanel-api -n openpanel
 ```
 
 ---
 
 ## 6. Alert: High HTTP Error Rate
 
-**Alert:** `HighErrorRate` — more than 10% of requests return 5xx.
+**Alert:** `HighErrorRate` — more than 10% of requests return 5xx for 5 minutes.
+
+Metric sourced from the API ServiceMonitor: `http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}`.
 
 ```bash
 # 1. View API logs in real time
 kubectl logs -n openpanel -l app=openpanel-api -f --tail=100
 
-# 2. Prometheus query to see the detail
-# rate(http_requests_total{status=~"5.."}[5m])
+# 2. Prometheus query to see the detail by route
+rate(http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}[5m])
+
+# View error rate as percentage
+sum(rate(http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}[5m]))
+/
+sum(rate(http_request_duration_seconds_count{job="openpanel-api"}[5m]))
 
 # 3. Check for database connection errors
 kubectl logs -n openpanel -l app=openpanel-api | grep -i "error\|ECONNREFUSED\|timeout"
@@ -199,6 +214,52 @@ kubectl get pods -n openpanel -l app=clickhouse
 
 # 5. If the problem persists, consider rollback
 argocd app rollback openpanel <previous-revision>
+```
+
+---
+
+## 6b. Alert: High API Latency
+
+**Alert:** `APIHighLatency` — P99 latency exceeds 2 seconds for 5 minutes.
+
+```bash
+# 1. PromQL query to view current latency
+histogram_quantile(0.99,
+  sum(rate(http_request_duration_seconds_bucket{job="openpanel-api"}[5m])) by (le, route)
+)
+
+# 2. View slowest routes in Grafana
+# Dashboard: OpenPanel API → TOP 10 Slowest Routes
+
+# 3. Check database load
+kubectl top pods -n openpanel
+kubectl exec -it -n openpanel <postgres-pod> -- psql -U postgres -d openpanel \
+  -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 5;"
+
+# 4. If degradation is sustained, consider rollback or scaling
+kubectl scale deployment openpanel-api-blue -n openpanel --replicas=2
+```
+
+---
+
+## 6c. Alert: Node.js Event Loop Lag
+
+**Alert:** `NodeJSEventLoopLag` — P99 event loop lag exceeds 500ms for 5 minutes.
+
+Indicates the Node.js process is blocked or overloaded.
+
+```bash
+# 1. View current event loop lag
+histogram_quantile(0.99, sum(rate(nodejs_eventloop_lag_seconds_bucket{job="openpanel-api"}[5m])) by (le))
+
+# 2. View pod CPU usage
+kubectl top pods -n openpanel -l app=openpanel-api
+
+# 3. Check for accumulated worker tasks
+kubectl exec -it -n openpanel <redis-pod> -c redis -- redis-cli LLEN bull:default:wait
+
+# 4. Restart the pod if lag is severe
+kubectl delete pod -n openpanel -l app=openpanel-api,version=blue
 ```
 
 ---

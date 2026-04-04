@@ -210,6 +210,17 @@ Ejecutado con **Gitleaks** sobre todo el historial del repositorio (`fetch-depth
 - Detecta tokens, contraseñas y keys en texto plano
 - Bloquea el pipeline si encuentra secrets expuestos
 
+#### Allowlist de falsos positivos — `.gitleaks.toml`
+
+El repositorio incluye un archivo `.gitleaks.toml` con allowlist de falsos positivos necesarios:
+
+| Tipo | Valor | Motivo |
+|---|---|---|
+| Path | `openpanel/apps/.*` | Código fuente upstream de OpenPanel con mock/example API keys — no son credenciales reales |
+| Commits | 4 hashes históricos | Tokens GHCR del bot CD que fueron rotados inmediatamente; ya no son válidos |
+
+Sin esta allowlist, Gitleaks fallaría en `workflow_dispatch` (que escanea todo el historial) por credenciales que ya no son válidas o que son datos de prueba del código fuente upstream.
+
 ---
 
 ### Job: Build & Push Images

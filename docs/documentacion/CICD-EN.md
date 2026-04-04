@@ -210,6 +210,17 @@ Run with **Gitleaks** over the full repository history (`fetch-depth: 0`).
 - Detects tokens, passwords, and keys in plain text
 - Blocks the pipeline if exposed secrets are found
 
+#### False positive allowlist — `.gitleaks.toml`
+
+The repository includes a `.gitleaks.toml` file with a required allowlist of false positives:
+
+| Type | Value | Reason |
+|---|---|---|
+| Path | `openpanel/apps/.*` | Upstream OpenPanel source code containing mock/example API keys — not real credentials |
+| Commits | 4 historical hashes | CD bot GHCR tokens that were immediately rotated; no longer valid |
+
+Without this allowlist, Gitleaks would fail on `workflow_dispatch` (which scans the full history) due to credentials that are no longer valid or are test data from upstream source code.
+
 ---
 
 ### Job: Build & Push Images

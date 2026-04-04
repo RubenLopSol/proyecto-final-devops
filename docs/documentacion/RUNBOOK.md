@@ -156,38 +156,53 @@ kubectl logs -n observability -l app.kubernetes.io/name=prometheus --tail=20
 
 ## 5. Alerta: Servicio Caído
 
-**Alertas:** `APIDown`, `RedisDown`, `PostgreSQLDown`
+**Alerta:** `ServiceDown` — `up{job="openpanel-api",namespace="openpanel"} == 0` durante 2 minutos.
+
+Los ServiceMonitors de Prometheus Operator controlan el scraping de todos los componentes de openpanel. Si un target cae:
 
 ```bash
-# 1. Verificar el estado del pod
+# 1. Verificar targets en Prometheus
+# http://prometheus.local/targets  (o con port-forward)
+kubectl port-forward svc/kube-prometheus-stack-prometheus -n observability 9090:9090
+# Abrir http://localhost:9090/targets y buscar el target caído
+
+# 2. Verificar el estado del pod
 kubectl get pods -n openpanel -l app=<servicio>
 
-# 2. Si el pod no existe o está en error:
+# 3. Si el pod no existe o está en error:
 kubectl describe pod -n openpanel -l app=<servicio>
 kubectl logs -n openpanel -l app=<servicio> --previous
 
-# 3. Forzar recreación del pod
+# 4. Forzar recreación del pod
 kubectl delete pod -n openpanel -l app=<servicio>
 
-# 4. Si es un StatefulSet (postgres, clickhouse):
+# 5. Si es un StatefulSet (postgres, clickhouse):
 kubectl rollout restart statefulset/<nombre> -n openpanel
 
-# 5. Verificar en Prometheus que el target vuelve a UP
-# http://localhost:9090/targets (tras port-forward)
+# 6. Verificar ServiceMonitor activo
+kubectl get servicemonitor -n openpanel
+kubectl describe servicemonitor openpanel-api -n openpanel
 ```
 
 ---
 
 ## 6. Alerta: Alta Tasa de Errores HTTP
 
-**Alerta:** `HighErrorRate` — más del 10% de peticiones retornan 5xx.
+**Alerta:** `HighErrorRate` — más del 10% de peticiones retornan 5xx durante 5 minutos.
+
+La métrica proviene del ServiceMonitor de la API: `http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}`.
 
 ```bash
 # 1. Ver logs de la API en tiempo real
 kubectl logs -n openpanel -l app=openpanel-api -f --tail=100
 
-# 2. Consulta en Prometheus para ver el detalle
-# rate(http_requests_total{status=~"5.."}[5m])
+# 2. Consulta en Prometheus para ver el detalle por ruta
+rate(http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}[5m])
+
+# Ver la tasa de error como porcentaje
+sum(rate(http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}[5m]))
+/
+sum(rate(http_request_duration_seconds_count{job="openpanel-api"}[5m]))
 
 # 3. Ver si hay errores de conexión a bases de datos
 kubectl logs -n openpanel -l app=openpanel-api | grep -i "error\|ECONNREFUSED\|timeout"
@@ -199,6 +214,52 @@ kubectl get pods -n openpanel -l app=clickhouse
 
 # 5. Si el problema persiste, considerar rollback
 argocd app rollback openpanel <revision-anterior>
+```
+
+---
+
+## 6b. Alerta: Alta Latencia de API
+
+**Alerta:** `APIHighLatency` — P99 de latencia supera 2 segundos durante 5 minutos.
+
+```bash
+# 1. Consulta PromQL para ver la latencia actual
+histogram_quantile(0.99,
+  sum(rate(http_request_duration_seconds_bucket{job="openpanel-api"}[5m])) by (le, route)
+)
+
+# 2. Ver las rutas más lentas en el dashboard de Grafana
+# Dashboard: OpenPanel API → TOP 10 Slowest Routes
+
+# 3. Verificar carga en las bases de datos
+kubectl top pods -n openpanel
+kubectl exec -it -n openpanel <postgres-pod> -- psql -U postgres -d openpanel \
+  -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 5;"
+
+# 4. Si hay degradación sostenida, considerar rollback o escalar
+kubectl scale deployment openpanel-api-blue -n openpanel --replicas=2
+```
+
+---
+
+## 6c. Alerta: Event Loop Lag de Node.js
+
+**Alerta:** `NodeJSEventLoopLag` — P99 del event loop lag supera 500ms durante 5 minutos.
+
+Indica que el proceso Node.js está bloqueado o sobrecargado.
+
+```bash
+# 1. Ver el event loop lag actual
+histogram_quantile(0.99, sum(rate(nodejs_eventloop_lag_seconds_bucket{job="openpanel-api"}[5m])) by (le))
+
+# 2. Ver uso de CPU del pod
+kubectl top pods -n openpanel -l app=openpanel-api
+
+# 3. Ver si hay tareas de worker acumuladas
+kubectl exec -it -n openpanel <redis-pod> -c redis -- redis-cli LLEN bull:default:wait
+
+# 4. Reiniciar el pod si el lag es severo
+kubectl delete pod -n openpanel -l app=openpanel-api,version=blue
 ```
 
 ---

@@ -154,23 +154,37 @@ kubectl get pods -n openpanel -l version=green
 
 ## Observability — Tool Access
 
-### Grafana
+With Ingress configured in `/etc/hosts`, services are directly accessible:
+
+| Service | URL | Credentials |
+|---|---|---|
+| Grafana | http://grafana.local | admin / admin |
+| Prometheus | http://prometheus.local | — |
+| AlertManager | http://alertmanager.local | — |
+| ArgoCD | http://argocd.local | admin / see secret |
+
+### Grafana (port-forward alternative)
 
 ```bash
-kubectl port-forward svc/grafana -n observability 3000:3000
+kubectl port-forward svc/kube-prometheus-stack-grafana -n observability 3000:80
 # http://localhost:3000
-# User: admin | Password: see Secret grafana-admin-credentials
-kubectl get secret grafana-admin-credentials -n observability \
-  -o jsonpath='{.data.admin-password}' | base64 -d
+# User: admin | Password: admin
 ```
 
-### Prometheus
+### Prometheus (port-forward alternative)
 
 ```bash
-kubectl port-forward svc/prometheus -n observability 9090:9090
+kubectl port-forward svc/kube-prometheus-stack-prometheus -n observability 9090:9090
 # http://localhost:9090
 # Targets: http://localhost:9090/targets
 # Alerts: http://localhost:9090/alerts
+```
+
+### AlertManager (port-forward alternative)
+
+```bash
+kubectl port-forward svc/kube-prometheus-stack-alertmanager -n observability 9093:9093
+# http://localhost:9093
 ```
 
 ### ArgoCD UI
@@ -197,17 +211,22 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 > ```
 
 ```bash
-# View status of all applications
+# View status of all applications (12 apps managed by ArgoCD)
 kubectl get applications -n argocd
 argocd app list
 
 # Manually sync an app
 argocd app sync openpanel
-argocd app sync observability
+argocd app sync prometheus      # wave 2 — installs Prometheus Operator CRDs
+argocd app sync loki            # wave 3
+argocd app sync promtail        # wave 3
+argocd app sync tempo           # wave 3
 argocd app sync minio
 argocd app sync velero
+argocd app sync velero-operator
 argocd app sync sealed-secrets
 argocd app sync namespaces
+argocd app sync local-path-provisioner
 
 # View differences between Git and the cluster
 argocd app diff openpanel

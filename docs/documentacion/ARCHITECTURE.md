@@ -72,26 +72,43 @@ proyecto_final/
 │       └── cd-update-tags.yml     # CD-Update-GitOps-Manifests (actualiza tags)
 ├── .kube-linter.yaml              # Checks selectivos de kube-linter (CI)
 ├── .hadolint.yaml                 # Reglas ignoradas de hadolint (CI)
+├── .gitleaks.toml                 # Allowlist de falsos positivos de Gitleaks
 ├── k8s/
 │   ├── apps/                      # Capa de aplicación (workloads)
 │   │   ├── base/
-│   │   │   └── openpanel/         # Manifiestos base: API, Dashboard, Worker, DBs, Ingress
+│   │   │   └── openpanel/
+│   │   │       ├── api-deployment-blue.yaml     # API activa (tráfico live)
+│   │   │       ├── api-deployment-green.yaml    # API standby (rollback)
+│   │   │       ├── api-service.yaml             # puertos http(:3333) y metrics(:3000)
+│   │   │       ├── servicemonitors.yaml         # ServiceMonitor para api, postgres, redis, clickhouse
+│   │   │       ├── network-policies.yaml        # default-deny + reglas explícitas (incluye scraping Prometheus)
+│   │   │       ├── postgres-statefulset.yaml    # postgres + postgres-exporter sidecar
+│   │   │       ├── postgres-service.yaml        # puertos postgres(:5432) y metrics(:9187)
+│   │   │       ├── redis-deployment.yaml        # redis + redis-exporter sidecar
+│   │   │       ├── redis-service.yaml           # puertos redis(:6379) y metrics(:9121)
+│   │   │       ├── clickhouse-statefulset.yaml  # clickhouse con métricas nativas
+│   │   │       ├── clickhouse-service.yaml      # puertos http, native y metrics(:9363)
+│   │   │       └── ...                          # worker, start, ingress, configmap, migrate-job
 │   │   └── overlays/
 │   │       ├── staging/           # Minikube: réplicas 1, recursos reducidos
 │   │       └── prod/              # Producción: réplicas altas, TLS, PDB
 │   └── infrastructure/            # Capa de plataforma (cluster tooling)
-│       ├── base/
-│       │   ├── namespaces/        # Definición de namespaces (común a todos los entornos)
-│       │   ├── observability/     # Helm values base: Prometheus, Grafana, Loki, Tempo
-│       │   ├── backup/            # MinIO + Velero daily schedule (base)
-│       │   └── sealed-secrets/    # Secrets cifrados con Sealed Secrets
+│       ├── base/observability/
+│       │   ├── kube-prometheus-stack/values.yaml  # Prometheus + Grafana + AlertManager + alertas + dashboards
+│       │   ├── loki/values.yaml                   # SingleBinary, structuredConfig inmemory rings
+│       │   ├── promtail/values.yaml
+│       │   └── tempo/values.yaml
 │       ├── overlays/
-│       │   ├── staging/           # Minikube: PVC 5Gi, retención 3d, recursos reducidos
-│       │   └── prod/              # Producción: PVC 50Gi, retención 30d, hourly backup
+│       │   ├── staging/observability/
+│       │   │   ├── kube-prometheus-stack/         # recursos reducidos, scrapers control-plane desactivados
+│       │   │   ├── loki/                          # lokiCanary desactivado
+│       │   │   ├── promtail/
+│       │   │   └── tempo/
+│       │   └── prod/
 │       └── argocd/
-│           ├── applications/      # ArgoCD Application manifests (App of Apps)
-│           ├── projects/          # ArgoCD AppProject
-│           └── bootstrap-app.yaml # Bootstrap — arranca todo el stack
+│           ├── base/applications/                 # 12 ArgoCD Application CRs
+│           ├── projects/                          # ArgoCD AppProject
+│           └── overlays/staging/argocd/           # patches de path/targetRevision por entorno
 ├── openpanel/                     # Código fuente de la aplicación
 └── docs/                          # Documentación del proyecto
 ```

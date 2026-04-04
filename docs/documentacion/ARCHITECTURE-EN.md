@@ -75,23 +75,39 @@ proyecto_final/
 ├── k8s/
 │   ├── apps/                      # Application layer (workloads)
 │   │   ├── base/
-│   │   │   └── openpanel/         # Base manifests: API, Dashboard, Worker, DBs, Ingress
+│   │   │   └── openpanel/
+│   │   │       ├── api-deployment-blue.yaml     # Active API (live traffic)
+│   │   │       ├── api-deployment-green.yaml    # Standby API (rollback target)
+│   │   │       ├── api-service.yaml             # Ports: http(:3333), metrics(:3000)
+│   │   │       ├── servicemonitors.yaml         # ServiceMonitors for api, postgres, redis, clickhouse
+│   │   │       ├── network-policies.yaml        # default-deny + explicit allow rules (incl. Prometheus scraping)
+│   │   │       ├── postgres-statefulset.yaml    # postgres + postgres-exporter sidecar
+│   │   │       ├── postgres-service.yaml        # Ports: postgres(:5432), metrics(:9187)
+│   │   │       ├── redis-deployment.yaml        # redis + redis-exporter sidecar
+│   │   │       ├── redis-service.yaml           # Ports: redis(:6379), metrics(:9121)
+│   │   │       ├── clickhouse-statefulset.yaml  # clickhouse with native metrics
+│   │   │       ├── clickhouse-service.yaml      # Ports: http, native, metrics(:9363)
+│   │   │       └── ...                          # worker, start, ingress, configmap, migrate-job
 │   │   └── overlays/
 │   │       ├── staging/           # Minikube: 1 replica, reduced resources
 │   │       └── prod/              # Production: higher replicas, TLS, PDB
 │   └── infrastructure/            # Platform layer (cluster tooling)
-│       ├── base/
-│       │   ├── namespaces/        # Namespace definitions (shared across environments)
-│       │   ├── observability/     # Base Helm values: Prometheus, Grafana, Loki, Tempo
-│       │   ├── backup/            # MinIO + Velero daily schedule (base)
-│       │   └── sealed-secrets/    # Secrets encrypted with Sealed Secrets
+│       ├── base/observability/
+│       │   ├── kube-prometheus-stack/values.yaml  # Prometheus + Grafana + AlertManager + alerts + dashboards
+│       │   ├── loki/values.yaml                   # SingleBinary, structuredConfig inmemory rings
+│       │   ├── promtail/values.yaml
+│       │   └── tempo/values.yaml
 │       ├── overlays/
-│       │   ├── staging/           # Minikube: 5Gi PVC, 3d retention, reduced resources
-│       │   └── prod/              # Production: 50Gi PVC, 30d retention, hourly backup
+│       │   ├── staging/observability/
+│       │   │   ├── kube-prometheus-stack/         # reduced resources, control-plane scrapers disabled
+│       │   │   ├── loki/                          # lokiCanary disabled
+│       │   │   ├── promtail/
+│       │   │   └── tempo/
+│       │   └── prod/
 │       └── argocd/
-│           ├── applications/      # ArgoCD Application manifests (App of Apps)
-│           ├── projects/          # ArgoCD AppProject
-│           └── bootstrap-app.yaml # Bootstrap — starts the entire stack
+│           ├── base/applications/                 # 12 ArgoCD Application CRs
+│           ├── projects/                          # ArgoCD AppProject
+│           └── overlays/staging/argocd/           # path/targetRevision patches per environment
 ├── openpanel/                     # Application source code
 └── docs/                          # Project documentation
 ```

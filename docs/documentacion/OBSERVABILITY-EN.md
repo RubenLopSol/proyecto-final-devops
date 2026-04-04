@@ -10,260 +10,248 @@ The system implements the three pillars of observability:
 
 | Pillar | Tool | Port | Description |
 |---|---|---|---|
-| **Metrics** | Prometheus | 9090 | Collects time-series metrics |
-| **Logs** | Loki + Promtail | 3100 | Aggregates logs from all pods |
+| **Metrics** | Prometheus | 9090 | Collects time-series metrics via ServiceMonitors |
+| **Logs** | Loki + Promtail | 3100 | Aggregates logs from all cluster pods |
 | **Traces** | Tempo | 3200 / 4317 | Distributed tracing (OTLP) |
-| **Dashboards** | Grafana | 3000 | Unified visualization |
+| **Dashboards** | Grafana | 3000 | Unified visualisation with correlated datasources |
+| **Alerts** | AlertManager | 9093 | Alert routing and suppression |
 
-All components are deployed in the `observability` namespace using **official Helm charts** managed by ArgoCD.
+All components are deployed to the `observability` namespace via **official Helm charts** managed by **4 independent ArgoCD applications**.
+
+### Access URLs (staging / Minikube)
+
+| Service | URL | Credentials |
+|---|---|---|
+| Grafana | http://grafana.local | admin / admin |
+| Prometheus | http://prometheus.local | — |
+| AlertManager | http://alertmanager.local | — |
+
+> Grafana credentials come from the `grafana-admin-credentials` secret in the `observability` namespace.
+> Retrieve with: `kubectl get secret grafana-admin-credentials -n observability -o jsonpath='{.data.admin-password}' | base64 -d`
+
+---
+
+## Deployment — 4 Independent ArgoCD Applications
+
+The observability stack is split into **4 independent ArgoCD Applications**, each managing a single Helm chart. This allows syncing or debugging one component without affecting the others.
+
+| ArgoCD App | Chart | Version | Sync Wave | Path |
+|---|---|---|---|---|
+| `prometheus` | `kube-prometheus-stack` | 65.1.1 | 2 | `overlays/staging/observability/kube-prometheus-stack` |
+| `loki` | `grafana/loki` | 6.6.2 | 3 | `overlays/staging/observability/loki` |
+| `promtail` | `grafana/promtail` | 6.16.4 | 3 | `overlays/staging/observability/promtail` |
+| `tempo` | `grafana/tempo` | 1.10.3 | 3 | `overlays/staging/observability/tempo` |
+
+`prometheus` uses wave 2 because it installs the Prometheus Operator CRDs (ServiceMonitor, PrometheusRule, etc.), which must exist before Loki, Promtail and Tempo (wave 3) can be deployed.
+
+Values file structure in the repository:
+```
+k8s/infrastructure/
+├── base/observability/
+│   ├── kube-prometheus-stack/values.yaml  ← common chart values
+│   ├── loki/values.yaml
+│   ├── promtail/values.yaml
+│   └── tempo/values.yaml
+└── overlays/staging/observability/
+    ├── kube-prometheus-stack/
+    │   ├── kustomization.yaml             ← declares helmChart with base + overlay values
+    │   └── values.yaml                    ← staging overrides (resources, retention, disabled scrapers)
+    ├── loki/
+    │   ├── kustomization.yaml
+    │   └── values.yaml                    ← SingleBinary, lokiCanary disabled
+    ├── promtail/kustomization.yaml
+    └── tempo/kustomization.yaml
+```
 
 ---
 
 ## Prometheus
 
-### Configuration
+### ServiceMonitors — Scraping OpenPanel
 
-Prometheus scrapes the following targets:
+OpenPanel component scraping is managed via **ServiceMonitor CRs** (Prometheus Operator), not via pod annotations. This provides better control, consistent labelling and clear visibility in the Prometheus UI.
 
-| Target | Port | What it measures |
-|---|---|---|
-| `cadvisor` | 8080 | Container metrics (CPU, memory, network) |
-| `node-exporter` | 9100 | Node metrics (CPU, memory, disk) |
-| `redis_exporter` | 9121 | Redis metrics (commands/s, memory, clients) |
-| `postgres_exporter` | 9187 | PostgreSQL metrics (connections, queries, size) |
-| ClickHouse | 9363 | Native ClickHouse metrics (queries, rows, memory) |
-| Kubernetes pods | — | Auto-discovery via annotations |
+All ServiceMonitors are in `k8s/apps/base/openpanel/servicemonitors.yaml` and carry the label `release: kube-prometheus-stack` so the Prometheus CR selects them.
 
-### Exporter Architecture
+| ServiceMonitor | Scrape Port | Key Metrics | Interval |
+|---|---|---|---|
+| `openpanel-api` | `:3000/metrics` | `http_request_duration_seconds{method,route,status_code}`, Node.js runtime | 15s |
+| `postgres-exporter` | `:9187/metrics` | `pg_up`, connections, queries, locks | 30s |
+| `redis-exporter` | `:9121/metrics` | `redis_up`, memory, commands/s | 30s |
+| `clickhouse` | `:9363/metrics` | Native ClickHouse metrics (queries, merges, memory) | 30s |
+
+Each ServiceMonitor includes a `relabelings` rule to copy the pod's `app` label into the Prometheus target labels, enabling queries such as `up{app="openpanel-api"}`.
+
+### Exporter architecture (sidecars)
 
 ```
+openpanel-api-blue-deployment
+└── container: api              (:3000 — HTTP + /metrics prom-client)
+
 redis-deployment
-├── container: redis         (port 6379)
-└── container: redis_exporter (port 9121, sidecar)
+├── container: redis            (:6379)
+└── container: redis-exporter   (:9121 — sidecar)
 
 postgres-statefulset
-├── container: postgres        (port 5432)
-└── container: postgres_exporter (port 9187, sidecar)
+├── container: postgres         (:5432)
+└── container: postgres-exporter (:9187 — sidecar)
 
 clickhouse-statefulset
-└── container: clickhouse     (port 9363, native metrics via XML config)
-
-node-exporter-daemonset       (port 9100, one pod per node)
+└── container: clickhouse       (:9363 — native metrics via XML config)
 ```
 
-### Verifying active targets
+### Active targets
 
 ```bash
-# Port-forward to Prometheus
-kubectl port-forward svc/prometheus -n observability 9090:9090
-
-# Access http://localhost:9090/targets
-# All targets should be in "UP" state
+# Verify all targets are UP in Prometheus
+curl -s http://prometheus.local/api/v1/targets | \
+  python3 -c "import json,sys; [print(t['labels']['job'], t['health']) \
+  for t in json.load(sys.stdin)['data']['activeTargets']]"
 ```
 
-![Prometheus — Active targets in UP state](../screenshots/prometheus-targets.png)
+Expected active targets: `apiserver`, `coredns`, `kubelet`, `node-exporter`, `kube-state-metrics`, `kube-prometheus-stack-prometheus`, `kube-prometheus-stack-alertmanager`, `openpanel-api`, `postgres`, `redis`, `clickhouse`.
+
+### Disabled scrapers in staging
+
+To avoid false-positive alerts in Minikube (control-plane components not reachable from inside the cluster), the following scrapers are disabled in the staging overlay:
+
+```yaml
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+```
+
+These must be enabled in production.
 
 ---
 
 ## Grafana
 
-### Dashboard: OpenPanel K8s Monitoring
-
-The `openpanel-k8s` dashboard (uid: `openpanel-k8s`) contains **18 panels** organized in rows:
-
-#### Row: Kubernetes Resources
-
-| Panel | Type | Metric |
-|---|---|---|
-| Memory Usage by Pod | Timeseries | `container_memory_working_set_bytes` |
-| CPU Usage by Pod | Timeseries | `rate(container_cpu_usage_seconds_total[5m])` |
-| Top 5 Pods by Memory | Stat | `topk(5, ...)` |
-| Top 5 Pods by CPU | Stat | `topk(5, ...)` |
-
-#### Row: Redis
-
-| Panel | Type | Metric |
-|---|---|---|
-| Redis UP | Stat | `redis_up` |
-| Redis Connected Clients | Stat | `redis_connected_clients` |
-| Redis Used Memory | Stat | `redis_memory_used_bytes` |
-| Redis Commands/sec | Timeseries | `rate(redis_commands_processed_total[5m])` |
-| Redis Memory Over Time | Timeseries | `redis_memory_used_bytes` |
-
-#### Row: PostgreSQL
-
-| Panel | Type | Metric |
-|---|---|---|
-| PostgreSQL UP | Stat | `pg_up` |
-| PostgreSQL DB Size | Stat | `pg_database_size_bytes` |
-| PostgreSQL Rows Fetched/sec | Timeseries | `rate(pg_stat_database_tup_fetched[5m])` |
-
-#### Row: Node
-
-| Panel | Type | Metric |
-|---|---|---|
-| Node Disk Available | Stat | `node_filesystem_avail_bytes` |
-| Node Disk Usage % | Timeseries | Disk free/total ratio |
-
-![Grafana — OpenPanel K8s Monitoring Dashboard](../screenshots/grafana-dashboard.png)
-
----
-
-### Dashboard Automation
-
-Grafana is deployed via the `kube-prometheus-stack` chart. Datasources (Prometheus, Loki, Tempo) are configured automatically via the `additionalDataSources` field in `k8s/infrastructure/base/observability/kube-prometheus-stack/values.yaml`.
-
-No manual action is required — when Grafana starts, the datasources appear automatically configured.
-
----
-
-### Accessing Grafana
+### Access
 
 ```bash
-# Via Ingress (requires /etc/hosts configured)
-# http://grafana.local
-
-# Via port-forward
-kubectl port-forward svc/kube-prometheus-stack-grafana -n observability 3000:3000
-# http://localhost:3000
-# User: admin / Password: admin (configurable in kube-prometheus-stack.yaml)
+open http://grafana.local   # User: admin / Password: admin
 ```
 
-### Configured datasources
+### Automatically configured datasources
 
-| Datasource | Internal URL | Type |
+| Datasource | Internal URL | Correlation |
 |---|---|---|
-| Prometheus | `http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090` | prometheus |
-| Loki | `http://loki-gateway.observability.svc.cluster.local` | loki |
-| Tempo | `http://tempo.observability.svc.cluster.local:3100` | tempo |
+| Prometheus | `http://kube-prometheus-stack-prometheus.observability:9090` | — |
+| Loki | `http://loki-gateway.observability.svc.cluster.local` | → Tempo (traceID regex) |
+| Tempo | `http://tempo.observability.svc.cluster.local:3100` | → Loki (by job/namespace/pod tags) |
+
+### Dashboards — Organised folders
+
+#### Folder: Cluster
+
+| Dashboard | grafana.com ID | Content |
+|---|---|---|
+| Kubernetes / Views / Pods | 15760 | Global cluster view: pods, nodes, namespaces |
+| Node Exporter Full | 1860 | CPU, memory, disk, network per node |
+| Kubernetes Cluster | 7249 | Resources per namespace |
+| Kubernetes cluster monitoring | 3119 | Pod and container drill-down |
+
+#### Folder: OpenPanel
+
+| Dashboard | grafana.com ID | Content |
+|---|---|---|
+| OpenPanel API (custom JSON) | — | RED method: request rate, error rate, P50/P90/P99 latency, top routes, Node.js runtime, GC, event loop |
+| PostgreSQL Database | 9628 | pg_up, connections, DB size, queries/s |
+| Redis Dashboard | 11835 | redis_up, memory, commands/s, clients |
+| ClickHouse | 14192 | Queries, merges, memory, uptime |
+| Node.js App | 11159 | Standard prom-client metrics |
+
+#### Built-in (General folder)
+
+Kubernetes / API server, Compute Resources, Networking, Persistent Volumes, AlertManager, CoreDNS, Prometheus Overview, Node Exporter, USE Method.
+
+### Dashboard sidecar
+
+Any ConfigMap with label `grafana_dashboard: "1"` is auto-loaded as a dashboard. The folder is set via the `grafana_folder` annotation. Sidecar monitors all namespaces (`searchNamespace: ALL`).
 
 ---
 
 ## Loki + Promtail
 
-**Promtail** is a DaemonSet that runs on each node, collects logs from all pods and sends them to **Loki**.
+**Promtail** is a DaemonSet running on every node that collects logs from all pods and ships them to **Loki**.
+
+### Loki configuration (staging)
+
+Deployed in **SingleBinary** mode with filesystem storage and in-memory ring configuration:
+
+```yaml
+deploymentMode: SingleBinary
+loki:
+  auth_enabled: false
+  storage:
+    type: filesystem
+  structuredConfig:
+    ingester:
+      lifecycler:
+        ring:
+          kvstore:
+            store: inmemory
+    distributor:
+      ring:
+        kvstore:
+          store: inmemory
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+```
 
 ### Querying logs in Grafana (LogQL)
 
 ```logql
-# API logs
 {namespace="openpanel", app="openpanel-api"}
-
-# Error logs in all pods
 {namespace="openpanel"} |= "error"
-
-# Worker logs filtered by level
 {namespace="openpanel", app="openpanel-worker"} | json | level="error"
-
-# Last 15 minutes of Postgres logs
-{namespace="openpanel", app="postgres"} [15m]
 ```
 
 ---
 
 ## Tempo — Distributed Tracing
 
-Tempo receives traces in **OTLP** (OpenTelemetry Protocol) format on port 4317 (gRPC).
-
-To enable tracing in the application, configure the environment variable:
+Tempo receives traces in **OTLP** format on port 4317 (gRPC).
 
 ```
 OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo.observability.svc.cluster.local:4317
 ```
 
-Traces can be explored from Grafana using the Tempo datasource.
-
 ---
 
-## Alerts — Prometheus AlertManager
-
-Alerts follow this flow:
-
-```
-Prometheus evaluates rules every 30s
-       │
-       │ condition true for the configured duration
-       ▼
-Alert fires → sent to AlertManager
-       │
-       ▼
-AlertManager groups alerts (by alertname + namespace + severity)
-— waits 30s to batch related alerts (group_wait)
-— suppresses warnings if a critical is already firing for the same alert (inhibit_rules)
-       │
-       ▼
-Router sends to the configured receiver
-— currently: 'null' receiver (no-op, for local demo)
-— production: replace with Slack/email/PagerDuty
-```
+## Alerts — Rules and AlertManager
 
 ### Configured alert rules
 
-Rules are defined in `k8s/infrastructure/base/observability/kube-prometheus-stack/values.yaml`:
-
-| Alert | Condition | Duration | Severity |
+| Alert | Expression | Duration | Severity |
 |---|---|---|---|
-| `ServiceDown` | `up{job=~".*openpanel.*"} == 0` | 2 min | critical |
-| `HighErrorRate` | HTTP 5xx error rate > 5% | 5 min | critical |
-| `HighMemoryUsage` | Memory usage > 90% of limit | 5 min | warning |
+| `ServiceDown` | `up{job="openpanel-api", namespace="openpanel"} == 0` | 2 min | critical |
+| `HighErrorRate` | HTTP 5xx rate / total > 5% | 5 min | critical |
+| `APIHighLatency` | P99 latency > 2s | 5 min | warning |
+| `NodeJSEventLoopLag` | `nodejs_eventloop_lag_p99_seconds > 0.5` | 5 min | warning |
+| `HighMemoryUsage` | container memory / limit > 90% | 5 min | warning |
 | `DatabaseDown` | `pg_up == 0 or redis_up == 0` | 1 min | critical |
 
-### AlertManager — Routing and receivers
+### System alerts (expected, not errors)
 
-AlertManager is enabled with the following configuration:
+| Alert | Meaning |
+|---|---|
+| `Watchdog` | Always-firing heartbeat. **If it disappears, the pipeline is broken.** |
+| `InfoInhibitor` | Suppresses Info alerts when a Warning is active for the same alertname. |
 
-- **group_by**: `alertname`, `namespace`, `severity` — groups related alerts
-- **inhibit_rules**: if a `critical` fires for an alert, the `warning` for the same alertname in the same namespace is silenced
-- **Current receiver**: `null` (local demo — alerts are evaluated and routed but not forwarded)
-
-To add real notifications, replace the receiver in `k8s/infrastructure/base/observability/kube-prometheus-stack/values.yaml`:
-
-```yaml
-receivers:
-  - name: 'slack'
-    slack_configs:
-      - api_url: 'https://hooks.slack.com/services/...'
-        channel: '#alerts'
-        send_resolved: true
-```
-
-### Verify AlertManager
+### Verifying the alert pipeline
 
 ```bash
-kubectl port-forward svc/alertmanager-operated -n observability 9093:9093
-# http://localhost:9093
-```
-
-![Prometheus — Active alert rules (http://prometheus.local/alerts)](../screenshots/grafana-alert-rules.png)
-
----
-
-## Deployment — Helm charts via ArgoCD
-
-The observability stack is managed by a **single ArgoCD Application** (`observability`) that renders all four charts using **kustomize + helmChartInflationGenerator**:
-
-| Helm Chart | Version | Includes |
-|---|---|---|
-| `prometheus-community/kube-prometheus-stack` | 65.1.1 | Prometheus + Grafana + AlertManager + Node Exporter + kube-state-metrics |
-| `grafana/loki` | 6.6.2 | Loki (single binary mode) |
-| `grafana/promtail` | 6.16.4 | Promtail DaemonSet |
-| `grafana/tempo` | 1.10.3 | Tempo |
-
-Values for each chart live in `k8s/infrastructure/base/observability/<chart>/values.yaml` (shared base values) and `k8s/infrastructure/overlays/<env>/observability/<chart>/values.yaml` (per-environment overrides). ArgoCD calls `kustomize build --enable-helm` on `overlays/staging/observability/`, which aggregates all four chart subdirectories and renders each one inline.
-
-Values structure:
-```
-base/observability/
-├── kube-prometheus-stack/values.yaml   ← shared chart values
-├── loki/values.yaml
-├── promtail/values.yaml
-└── tempo/values.yaml
-
-overlays/staging/observability/
-├── kube-prometheus-stack/values.yaml   ← staging-specific overrides
-├── loki/values.yaml
-├── promtail/values.yaml
-└── tempo/values.yaml
+open http://prometheus.local/alerts   # Watchdog must show as Firing
+open http://alertmanager.local        # Watchdog must appear here too
 ```
 
 ---
@@ -271,19 +259,11 @@ overlays/staging/observability/
 ## Stack Verification
 
 ```bash
-# Verify all observability pods
 kubectl get pods -n observability
-
-# Verify that ArgoCD synced the observability app
-kubectl get applications -n argocd | grep observability
-
-# View Prometheus targets (all should be UP)
-kubectl port-forward svc/kube-prometheus-stack-prometheus -n observability 9090:9090
-# http://localhost:9090/targets
-
-# View Promtail logs (verify it is collecting logs)
-kubectl logs -n observability -l app.kubernetes.io/name=promtail --tail=20
-
-# If a pod is in CrashLoopBackOff
-kubectl describe pod -n observability <pod-name>
+argocd app list | grep -E "prometheus|loki|promtail|tempo"
+curl -s http://prometheus.local/api/v1/targets?state=active | \
+  python3 -c "import json,sys; \
+  [print(t['labels']['job'], t['health']) \
+  for t in json.load(sys.stdin)['data']['activeTargets']]"
+kubectl exec -n observability loki-0 -- wget -qO- localhost:3100/ready
 ```
