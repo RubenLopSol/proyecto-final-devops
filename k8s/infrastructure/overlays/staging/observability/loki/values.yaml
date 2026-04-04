@@ -28,3 +28,8 @@ singleBinary:
 # Disable it — the canary is a production SLO tool, not needed in staging.
 lokiCanary:
   enabled: false
+
+# The chart validate.yaml enforces: if test.enabled then lokiCanary.enabled.
+# Disable the Helm test job so the chart renders without the canary.
+test:
+  enabled: false
