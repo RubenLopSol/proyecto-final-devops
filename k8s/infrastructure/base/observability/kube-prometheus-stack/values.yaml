@@ -154,10 +154,28 @@ grafana:
           datasourceUid: prometheus
 
 # ----------------------------------------------------------------------------
+# Prometheus
+# ----------------------------------------------------------------------------
+prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.local
+  prometheusSpec:
+    nodeSelector:
+      workload: observability
+
+# ----------------------------------------------------------------------------
 # AlertManager
 # ----------------------------------------------------------------------------
 alertmanager:
   enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - alertmanager.local
   alertmanagerSpec:
     nodeSelector:
       workload: observability
