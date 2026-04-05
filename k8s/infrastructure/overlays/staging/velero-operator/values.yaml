@@ -1,19 +1,19 @@
 # =============================================================================
 # Velero — STAGING overrides
-# Backend: LocalStack (in-cluster S3 emulator, provisioned by Terraform)
+# Backend: in-cluster MinIO (namespace: backup, port 9000)
 #
-# LocalStack accepts any credentials in default mode — the values below are
-# intentionally static placeholders (not real secrets).
+# MinIO is deployed by ArgoCD and provides S3-compatible storage backed by
+# a 5Gi PVC. Fully self-contained — no host-side process required.
+# Credentials match the minio-credentials SealedSecret (staging values).
 # =============================================================================
 
-# Inline credentials for LocalStack (any value works — LocalStack is not
-# authenticated by default). These are NOT real credentials.
+# MinIO credentials (staging-only, non-sensitive defaults from SealedSecret)
 credentials:
   secretContents:
     cloud: |
       [default]
-      aws_access_key_id=test
-      aws_secret_access_key=test
+      aws_access_key_id=minio
+      aws_secret_access_key=minio123
 
 # BackupStorageLocation is managed declaratively by the 'velero' ArgoCD app
 # (k8s/infrastructure/overlays/staging/velero). Do not configure it here to
