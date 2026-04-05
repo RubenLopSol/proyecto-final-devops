@@ -11,6 +11,7 @@ La seguridad se aplica en múltiples capas:
 | Capa | Mecanismo | Herramienta |
 |---|---|---|
 | Secrets en Git | Cifrado con clave del clúster | Sealed Secrets |
+| Clave privada del controller | Backup fuera del clúster | AWS Secrets Manager |
 | Secrets en pipeline CI | Variables cifradas del repositorio | GitHub Secrets |
 | Tráfico de red | Reglas de allow/deny por pod | Network Policies |
 | Permisos de pods | No-root, read-only filesystem | SecurityContext |
@@ -23,46 +24,137 @@ La seguridad se aplica en múltiples capas:
 
 En GitOps, todo debe estar en Git — incluyendo los secrets. **Sealed Secrets** permite commitear secrets cifrados de forma segura.
 
-### Cómo funciona
+### Cómo funciona — Flujo de datos completo
 
-![SealedSecret](../diagrams/img/sealedSecret.png)
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  CREACIÓN (una vez por secret)                                          │
+│                                                                         │
+│  Developer                                                              │
+│     │                                                                   │
+│     │  kubectl create secret --dry-run -o yaml                         │
+│     ▼                                                                   │
+│  Secret YAML (plaintext) — solo en memoria/pipe, nunca en disco        │
+│     │                                                                   │
+│     │  kubeseal --cert <public-key>                                     │
+│     ▼                                                                   │
+│  SealedSecret YAML (cifrado RSA-OAEP) ──► git commit ──► GitHub        │
+└─────────────────────────────────────────────────────────────────────────┘
 
-Solo el controlador del clúster (que tiene la clave privada) puede descifrar el SealedSecret. Aunque alguien acceda al repositorio, los valores están cifrados.
+┌─────────────────────────────────────────────────────────────────────────┐
+│  DESPLIEGUE (automático vía ArgoCD)                                     │
+│                                                                         │
+│  GitHub                                                                 │
+│     │                                                                   │
+│     │  ArgoCD detecta cambio en overlays/staging/sealed-secrets/        │
+│     ▼                                                                   │
+│  kubectl apply SealedSecret ──► Kubernetes API                         │
+│                                      │                                  │
+│                                      │  Sealed Secrets Controller       │
+│                                      │  (watch SealedSecret resources)  │
+│                                      ▼                                  │
+│                              Descifra con clave privada RSA             │
+│                                      │                                  │
+│                                      ▼                                  │
+│                              Crea Secret nativo de Kubernetes           │
+│                                      │                                  │
+│                                      ▼                                  │
+│                              Pod lee el Secret como envFrom/volumeMount │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Por qué es seguro commitear los SealedSecrets:**
+
+El cifrado usa **RSA-OAEP** con la clave pública del clúster. El resultado es un blob cifrado que solo puede descifrar el controller que tiene la clave privada correspondiente. Sin acceso al clúster, el blob es inútil.
+
+### La clave privada — dónde vive y cómo se protege
+
+Cuando se instala el controller por primera vez (`make sealed-secrets`), genera automáticamente un par de claves RSA-4096 y las almacena como un Kubernetes Secret en el namespace `sealed-secrets`:
+
+```bash
+# Ver la clave generada
+kubectl get secret -n sealed-secrets \
+  -l sealedsecrets.bitnami.com/sealed-secrets-key
+# NAME                        TYPE                DATA
+# sealed-secrets-key-xxxxx    kubernetes.io/tls   2   ← tls.crt (pública) + tls.key (privada)
+```
+
+**Riesgo:** si el clúster se destruye, la clave se pierde y los SealedSecrets existentes ya no pueden descifrar. Por eso la clave se respalda en AWS Secrets Manager.
+
+### Backup de la clave en AWS Secrets Manager
+
+La configuración del controller está en `k8s/infrastructure/base/sealed-secrets/values.yaml` — recursos, nodeSelector, securityContext y métricas. El Makefile lo pasa con `--values` al instalar.
+
+Terraform provisiona el slot en Secrets Manager (`terraform/modules/backup-storage/main.tf`, llamado desde cada entorno):
+
+```hcl
+resource "aws_secretsmanager_secret" "sealed_secrets_key" {
+  name = "devops-cluster/sealed-secrets-master-key"
+}
+```
+
+Después de instalar el controller, hacer backup de la clave:
+
+```bash
+# Exporta la clave del cluster y la almacena en Secrets Manager (LocalStack)
+make backup-sealing-key
+
+# Para AWS real (sin LocalStack), pasar el endpoint vacío:
+make backup-sealing-key LOCALSTACK_ENDPOINT=""
+```
+
+### Recuperar en un nuevo clúster
+
+```bash
+# 1. Instalar el controller via kustomize (mismo método que el setup normal)
+make sealed-secrets ENV=staging
+
+# 2. Si tienes backup de la clave RSA, restaurarla antes de que ArgoCD sincronice
+make restore-sealing-key
+# El controller descifra los SealedSecrets existentes en el repo sin necesidad de reseal
+
+# Si NO tienes backup de la clave, regenerar los secrets con la nueva clave del clúster:
+make reseal-secrets ENV=staging
+git add k8s/infrastructure/overlays/staging/sealed-secrets/secrets.yaml
+git commit -m "chore: reseal secrets for new cluster"
+git push
+```
 
 ### Secrets gestionados
 
-| Archivo | Namespace | Contenido |
-|---|---|---|
-| `postgres-credentials.yaml` | openpanel | Usuario y contraseña de PostgreSQL |
-| `redis-credentials.yaml` | openpanel | Contraseña de Redis |
-| `clickhouse-credentials.yaml` | openpanel | Usuario y contraseña de ClickHouse |
-| `openpanel-secrets.yaml` | openpanel | Variables sensibles de la aplicación |
+Todos los secrets se almacenan en **un único archivo por entorno**, generado por `make reseal-secrets`:
+
+```
+k8s/infrastructure/overlays/staging/sealed-secrets/secrets.yaml
+k8s/infrastructure/overlays/prod/sealed-secrets/secrets.yaml
+```
+
+| Sección | Secret | Namespace destino | Contenido |
+|---|---|---|---|
+| § 1 | `postgres-credentials` | `openpanel` | Usuario y contraseña de PostgreSQL |
+| § 2 | `redis-credentials` | `openpanel` | Contraseña de Redis |
+| § 3 | `clickhouse-credentials` | `openpanel` | Usuario y contraseña de ClickHouse |
+| § 4 | `openpanel-secrets` | `openpanel` | DATABASE_URL, CLICKHOUSE_URL, REDIS_URL, API_SECRET |
+| § 5 | `grafana-admin-credentials` | `observability` | Usuario y contraseña de Grafana |
+| § 6 | `minio-credentials` | `backup` | MINIO_ROOT_USER, MINIO_ROOT_PASSWORD |
+
+El controller vive en el namespace `sealed-secrets` pero crea los Secrets en el namespace declarado en cada SealedSecret (openpanel, observability, backup). Los pods solo pueden leer Secrets de su propio namespace — por eso cada secret apunta al namespace donde el pod espera encontrarlo.
 
 ![Sealed Secrets — SealedSecrets gestionados por ArgoCD](../screenshots/sealed-secrets-argocd.png)
 
-### Crear un nuevo Sealed Secret
+### Rotar o actualizar secrets
+
+Todos los secrets se regeneran a la vez con un solo comando:
 
 ```bash
-# 1. Crear el secret en local (sin aplicar al clúster)
-kubectl create secret generic nuevo-secret \
-  --from-literal=clave=valor \
-  --namespace openpanel \
-  --dry-run=client -o yaml > /tmp/secret.yaml
+# Rotar una o varias credenciales (el resto toma los valores del .secrets o los defaults)
+make reseal-secrets ENV=staging POSTGRES_PASSWORD=nueva-pass
 
-# 2. Cifrar con kubeseal
-kubeseal \
-  --controller-namespace sealed-secrets \
-  --format yaml \
-  < /tmp/secret.yaml \
-  > k8s/argocd/sealed-secrets/nuevo-secret.yaml
-
-# 3. Limpiar el archivo temporal
-rm /tmp/secret.yaml
-
-# 4. Commitear el SealedSecret (seguro de hacer)
-git add k8s/argocd/sealed-secrets/nuevo-secret.yaml
-git commit -m "feat: add sealed secret for nuevo-secret"
+# Commitear el nuevo secrets.yaml (los valores son blobs RSA-cifrados, es seguro)
+git add k8s/infrastructure/overlays/staging/sealed-secrets/secrets.yaml
+git commit -m "chore: rotate postgres credentials"
 git push
+# ArgoCD (app sealed-secrets) aplica el cambio automáticamente
 ```
 
 ### Verificar que el Secret se descifra
@@ -162,7 +254,7 @@ rules:
 
 ### ArgoCD
 
-ArgoCD tiene su propio sistema de RBAC. El proyecto `openpanel` limita las aplicaciones a los namespaces `openpanel`, `observability` y `backup`.
+ArgoCD tiene su propio sistema de RBAC. El AppProject `openpanel` limita las aplicaciones a los namespaces `openpanel`, `observability`, `backup`, `sealed-secrets` y `kube-system`. El controller de Sealed Secrets necesita permisos en `sealed-secrets` para gestionar la clave RSA y en el resto de namespaces para crear los Secrets descifrados.
 
 ---
 
@@ -171,17 +263,18 @@ ArgoCD tiene su propio sistema de RBAC. El proyecto `openpanel` limita las aplic
 **Trivy** se ejecuta en el pipeline CI después de cada build de imagen.
 
 ```yaml
-# .github/workflows/ci.yml — job security-scan
+# .github/workflows/ci-build-publish.yml — job security-scan
 - name: Run Trivy vulnerability scanner
-  uses: aquasecurity/trivy-action@master
+  uses: aquasecurity/trivy-action@0.28.0
   with:
-    image-ref: "ghcr.io/rubenlopsol/openpanel-api:latest"
+    image-ref: "ghcr.io/<owner>/openpanel-api:latest"
     format: "sarif"
     severity: "CRITICAL,HIGH"
-    exit-code: "0"    # No bloquea, solo informa
+    exit-code: "1"         # Bloquea el pipeline si hay vulnerabilidades con parche disponible
+    ignore-unfixed: true   # Ignora vulnerabilidades sin parche publicado (no corregibles localmente)
 ```
 
-Los resultados se suben automáticamente a la pestaña **Security** del repositorio GitHub (formato SARIF).
+Los resultados se suben automáticamente a la pestaña **Security** del repositorio GitHub (formato SARIF) con `if: always()` — el SARIF se sube incluso si Trivy falla.
 
 ---
 

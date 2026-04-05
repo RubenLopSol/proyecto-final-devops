@@ -1,17 +1,34 @@
-title = "Gitleaks config — OpenPanel DevOps Project"
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks#configuration
+
+title = "gitleaks config"
 
 [extend]
-# Usar las reglas por defecto de gitleaks
+# Use the default gitleaks ruleset as the base
 useDefault = true
 
-# Ignorar directorios que contienen datos cifrados (Sealed Secrets)
-# Los SealedSecrets son blobs cifrados con la clave pública del clúster
-# y no contienen credenciales en texto plano
+# Allowlist paths that contain known false positives.
+# These are Helm chart source files (documentation, example values) that were
+# accidentally committed before k8s/**/charts/ was added to .gitignore.
+# The charts/ directories are kustomize's local Helm cache — equivalent to
+# node_modules — and contain example/dummy RSA keys in their README and values
+# files, not real secrets.
 [allowlist]
-description = "Allowlist para datos cifrados y credenciales de test"
+description = "Known false positives and historical findings"
 paths = [
-  # SealedSecrets: datos cifrados, no son secretos reales
-  "k8s/argocd/sealed-secrets/.*\\.yaml",
-  # Terraform LocalStack: credenciales fijas de test (access_key = "test")
-  "terraform/localstack/.*\\.tf",
+  # Helm chart cache — equivalent to node_modules, contains example/dummy keys in READMEs
+  '''k8s/.*/charts/.*''',
+  # Upstream OpenPanel source code — mock data, test fixtures, and API documentation
+  # examples contain fake client secrets / project IDs. These are not real credentials.
+  '''openpanel/apps/.*''',
+]
+
+# Old GHCR image reference tokens committed by the CD bot in March 2026.
+# These were transient short-lived registry tokens in deployment manifests;
+# they have since been rotated and the manifests moved to use kustomize image patches.
+commits = [
+  "7720f551ced6fe9fd37095ae9ff7e784c31d0f0c",
+  "9dffc911e61710e2977d65d7058afc8118a9b647",
+  "7fca1b703ca7578eda40d3c951c71c7c07a900ce",
+  "e0144a33836f3bfd03029f1acbbdb2e0b99c194b",
 ]

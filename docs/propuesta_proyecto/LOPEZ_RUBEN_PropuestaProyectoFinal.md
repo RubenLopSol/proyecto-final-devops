@@ -352,7 +352,7 @@ El proyecto se estructura en siete fases secuenciales. Cada fase tiene dependenc
 |---|---|---|---|
 | **1. Infraestructura base** | Clúster Minikube, namespaces, Sealed Secrets, Terraform | Setup minikube, namespaces, Sealed Secrets controller, módulo Terraform S3/IAM | 10 h |
 | **2. GitOps — ArgoCD** | Instalación y configuración de ArgoCD, Applications, Kustomize overlays | Instalar ArgoCD, crear AppProject, Application manifests, overlay local | 10 h |
-| **3. Pipeline CI/CD** | GitHub Actions CI + CD, build de imágenes, push a GHCR | Workflows ci.yml y cd.yml, matrix build api/start/worker, actualización automática de tags | 12 h |
+| **3. Pipeline CI/CD** | GitHub Actions CI + CD, build de imágenes, push a GHCR | Workflows ci-validate.yml, ci-build-publish.yml y cd-update-tags.yml, matrix build api/start/worker, actualización automática de tags | 12 h |
 | **4. Despliegue de la aplicación** | Manifiestos Kubernetes para los 6 componentes de OpenPanel | Deployments, Services, StatefulSets, ConfigMaps, PVCs, Ingress, NetworkPolicies | 12 h |
 | **5. Estrategia Blue-Green** | Despliegue Blue-Green para la API con conmutación segura | Deployments blue/green, Service selector, script de conmutación con health checks | 8 h |
 | **6. Observabilidad** | Stack completo: métricas, logs, trazas y dashboards | Prometheus + exporters, Loki + Promtail, Tempo, Grafana dashboards, reglas de alerta | 14 h |

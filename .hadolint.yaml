@@ -1,0 +1,8 @@
+# Hadolint configuration
+# The Dockerfiles under openpanel/ are upstream application code that we do
+# not own or maintain. We lint them for critical issues only — version-pinning
+# in apt-get (DL3008) and consecutive RUN consolidation (DL3059) are
+# application-team concerns, not infrastructure/DevOps pipeline concerns.
+ignore:
+  - DL3008  # Pin versions in apt-get install — upstream code, not our responsibility
+  - DL3059  # Multiple consecutive RUN instructions — upstream code, not our responsibility

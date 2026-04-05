@@ -21,13 +21,13 @@ El repositorio incluye scripts en `scripts/` que automatizan las operaciones má
 
 ```bash
 # Arrancar el clúster (perfil openpanel)
-minikube start -p openpanel
+minikube start -p devops-cluster
 
 # Parar el clúster (los datos persisten)
-minikube stop -p openpanel
+minikube stop -p devops-cluster
 
 # Estado del clúster
-minikube status -p openpanel
+minikube status -p devops-cluster
 ```
 
 ### Recuperación tras reinicio de minikube
@@ -42,7 +42,7 @@ kubectl get pods -A | grep -v "Running\|Completed"
 kubectl delete pod -n argocd -l app.kubernetes.io/name=repo-server
 
 # 3. Si sealed-secrets-controller está en CrashLoopBackOff
-kubectl delete pod -n kube-system -l app.kubernetes.io/name=sealed-secrets
+kubectl delete pod -n sealed-secrets -l app.kubernetes.io/name=sealed-secrets
 
 # 4. Esperar ~30s y verificar que todos han recuperado
 kubectl get pods -A | grep -v "Running\|Completed"
@@ -154,23 +154,37 @@ kubectl get pods -n openpanel -l version=green
 
 ## Observabilidad — Acceso a Herramientas
 
-### Grafana
+Con Ingress configurado en `/etc/hosts`, los servicios son accesibles directamente:
+
+| Servicio | URL | Credenciales |
+|---|---|---|
+| Grafana | http://grafana.local | admin / admin |
+| Prometheus | http://prometheus.local | — |
+| AlertManager | http://alertmanager.local | — |
+| ArgoCD | http://argocd.local | admin / ver secret |
+
+### Grafana (port-forward alternativo)
 
 ```bash
-kubectl port-forward svc/grafana -n observability 3000:3000
+kubectl port-forward svc/kube-prometheus-stack-grafana -n observability 3000:80
 # http://localhost:3000
-# User: admin | Password: ver Secret grafana-admin-credentials
-kubectl get secret grafana-admin-credentials -n observability \
-  -o jsonpath='{.data.admin-password}' | base64 -d
+# User: admin | Password: admin
 ```
 
-### Prometheus
+### Prometheus (port-forward alternativo)
 
 ```bash
-kubectl port-forward svc/prometheus -n observability 9090:9090
+kubectl port-forward svc/kube-prometheus-stack-prometheus -n observability 9090:9090
 # http://localhost:9090
 # Targets: http://localhost:9090/targets
 # Alerts: http://localhost:9090/alerts
+```
+
+### AlertManager (port-forward alternativo)
+
+```bash
+kubectl port-forward svc/kube-prometheus-stack-alertmanager -n observability 9093:9093
+# http://localhost:9093
 ```
 
 ### ArgoCD UI
@@ -197,17 +211,22 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 > ```
 
 ```bash
-# Ver estado de todas las aplicaciones
+# Ver estado de todas las aplicaciones (12 apps gestionadas por ArgoCD)
 kubectl get applications -n argocd
 argocd app list
 
 # Sincronizar manualmente una app
 argocd app sync openpanel
-argocd app sync observability-prometheus
-argocd app sync observability-loki
-argocd app sync observability-promtail
-argocd app sync observability-tempo
-argocd app sync backup
+argocd app sync prometheus      # wave 2 — instala CRDs Prometheus Operator
+argocd app sync loki            # wave 3
+argocd app sync promtail        # wave 3
+argocd app sync tempo           # wave 3
+argocd app sync minio
+argocd app sync velero
+argocd app sync velero-operator
+argocd app sync sealed-secrets
+argocd app sync namespaces
+argocd app sync local-path-provisioner
 
 # Ver diferencias entre Git y el clúster
 argocd app diff openpanel
@@ -272,19 +291,19 @@ velero restore create \
 ## Secrets — Gestión con Sealed Secrets
 
 ```bash
-# Crear un nuevo Sealed Secret
-kubectl create secret generic mi-secret \
-  --from-literal=key=value \
-  --namespace openpanel \
-  --dry-run=client -o yaml | \
-kubeseal --controller-namespace sealed-secrets \
-  --format yaml > k8s/argocd/sealed-secrets/mi-secret.yaml
+# Regenerar todos los secrets cifrados (tras rotar credenciales o recrear el clúster)
+make reseal-secrets ENV=staging
+
+# Rotar una credencial específica
+make reseal-secrets ENV=staging POSTGRES_PASSWORD=nueva-pass
 
 # Verificar que el controller está activo
 kubectl get pods -n sealed-secrets
 
-# Ver secrets descifrados en el namespace
+# Ver secrets descifrados en los namespaces
 kubectl get secrets -n openpanel
+kubectl get secrets -n observability
+kubectl get secrets -n backup
 ```
 
 ---

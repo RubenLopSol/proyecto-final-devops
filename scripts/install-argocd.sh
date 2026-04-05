@@ -2,24 +2,31 @@
 set -euo pipefail
 
 # =============================================================================
-# Install ArgoCD via Helm and bootstrap the App of Apps
+# Install ArgoCD via Kustomize + Helm and bootstrap the App of Apps
 #
 # Usage:
-#   ./scripts/install-argocd.sh
+#   ./scripts/install-argocd.sh [ENV]
+#   ENV defaults to "staging"
 #
 # What it does:
-#   1. Validates prerequisites (helm, kubectl)
-#   2. Installs or upgrades ArgoCD via Helm (idempotent)
+#   1. Validates prerequisites (kustomize, kubectl)
+#   2. Installs ArgoCD by rendering the env overlay with kustomize + Helm
 #   3. Waits for the admin secret to be available
-#   4. Applies the ArgoCD AppProject (defines permissions scope)
+#   4. Applies the AppProject (defines RBAC scope)
 #   5. Applies the bootstrap Application (App of Apps — manages all other apps)
+#
+# Overlay rendered:
+#   k8s/infrastructure/overlays/<ENV>/argocd/kustomization.yaml
 # =============================================================================
 
+ENV="${1:-staging}"
 NAMESPACE="argocd"
-ARGOCD_CHART_VERSION="7.7.0"
-VALUES_FILE="k8s/helm/values/argocd.yaml"
-HELM_MIN_MAJOR=3
-HELM_MIN_MINOR=8
+OVERLAY="k8s/infrastructure/overlays/${ENV}/argocd"
+BOOTSTRAP_APP="${OVERLAY}/bootstrap-app.yaml"
+
+KUSTOMIZE_VERSION="5.4.3"
+KUSTOMIZE_MIN_MAJOR=4
+KUSTOMIZE_MIN_MINOR=1
 
 # -----------------------------------------------------------------------------
 # Colors
@@ -43,49 +50,61 @@ info()    { echo -e "  $*"; }
 check_prerequisites() {
   local missing=0
 
-  header "Checking prerequisites"
-  for cmd in helm kubectl; do
-    if ! command -v "${cmd}" &>/dev/null; then
-      error "'${cmd}' is not installed or not in PATH"
-      missing=1
-    else
-      success "${cmd} found"
-    fi
-  done
+  header "Checking prerequisites (ENV=${ENV})"
+
+  # Auto-install kustomize if missing
+  if ! command -v kustomize &>/dev/null; then
+    info "kustomize not found — installing v${KUSTOMIZE_VERSION} to ~/.local/bin..."
+    mkdir -p "${HOME}/.local/bin"
+    KZ_TGZ="kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+    curl -fsSL \
+      "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/${KZ_TGZ}" \
+      -o "/tmp/${KZ_TGZ}"
+    tar -xzf "/tmp/${KZ_TGZ}" -C "${HOME}/.local/bin"
+    rm -f "/tmp/${KZ_TGZ}"
+    export PATH="${HOME}/.local/bin:${PATH}"
+    success "kustomize v${KUSTOMIZE_VERSION} installed to ~/.local/bin"
+  else
+    success "kustomize found"
+  fi
+
+  if ! command -v kubectl &>/dev/null; then
+    error "'kubectl' is not installed or not in PATH"
+    missing=1
+  else
+    success "kubectl found"
+  fi
 
   if [ "${missing}" -eq 1 ]; then
-    echo ""
     error "Install missing tools and re-run this script."
     exit 1
   fi
 
-  # Helm minimum version check (requires >= HELM_MIN_MAJOR.HELM_MIN_MINOR)
-  step "Checking Helm version (minimum v${HELM_MIN_MAJOR}.${HELM_MIN_MINOR})"
-  HELM_RAW=$(helm version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-  HELM_MAJOR=$(echo "${HELM_RAW}" | cut -d. -f1 | tr -d 'v')
-  HELM_MINOR=$(echo "${HELM_RAW}" | cut -d. -f2)
+  # Kustomize minimum version (requires >= KUSTOMIZE_MIN_MAJOR.KUSTOMIZE_MIN_MINOR)
+  step "Checking kustomize version (minimum v${KUSTOMIZE_MIN_MAJOR}.${KUSTOMIZE_MIN_MINOR})"
+  KUSTOMIZE_RAW=$(kustomize version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  KUSTOMIZE_MAJOR=$(echo "${KUSTOMIZE_RAW}" | cut -d. -f1 | tr -d 'v')
+  KUSTOMIZE_MINOR=$(echo "${KUSTOMIZE_RAW}" | cut -d. -f2)
 
-  if [ -z "${HELM_MAJOR}" ]; then
-    error "Could not determine Helm version. Output: $(helm version --short 2>&1 || true)"
+  if [ -z "${KUSTOMIZE_MAJOR}" ]; then
+    error "Could not determine kustomize version."
     exit 1
   fi
 
-  if [ "${HELM_MAJOR}" -lt "${HELM_MIN_MAJOR}" ] || \
-     { [ "${HELM_MAJOR}" -eq "${HELM_MIN_MAJOR}" ] && [ "${HELM_MINOR}" -lt "${HELM_MIN_MINOR}" ]; }; then
-    error "Helm v${HELM_MIN_MAJOR}.${HELM_MIN_MINOR}+ is required. Found: ${HELM_RAW}"
-    info "Upgrade Helm: https://helm.sh/docs/intro/install/"
+  if [ "${KUSTOMIZE_MAJOR}" -lt "${KUSTOMIZE_MIN_MAJOR}" ] || \
+     { [ "${KUSTOMIZE_MAJOR}" -eq "${KUSTOMIZE_MIN_MAJOR}" ] && \
+       [ "${KUSTOMIZE_MINOR}" -lt "${KUSTOMIZE_MIN_MINOR}" ]; }; then
+    error "kustomize v${KUSTOMIZE_MIN_MAJOR}.${KUSTOMIZE_MIN_MINOR}+ required. Found: ${KUSTOMIZE_RAW}"
     exit 1
   fi
+  success "kustomize ${KUSTOMIZE_RAW} — OK"
 
-  success "Helm ${HELM_RAW} — OK"
-
-  if [ ! -f "${VALUES_FILE}" ]; then
-    error "Values file not found: ${VALUES_FILE}"
-    info "Run this script from the repository root."
+  if [ ! -d "${OVERLAY}" ]; then
+    error "Overlay not found: ${OVERLAY}"
+    info  "Available environments: $(ls k8s/infrastructure/overlays/)"
     exit 1
   fi
-
-  success "Values file found: ${VALUES_FILE}"
+  success "Overlay found: ${OVERLAY}"
 }
 
 # Wait for a Kubernetes secret to exist
@@ -113,22 +132,34 @@ wait_for_secret() {
 # -----------------------------------------------------------------------------
 check_prerequisites
 
-header "Adding ArgoCD Helm repository"
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
-success "Helm repository up to date"
+header "Installing ArgoCD (ENV=${ENV}) — pass 1: chart only"
+step "Rendering base chart (registers CRDs — no Application/AppProject resources yet)"
+# Pass 1: install only the ArgoCD Helm chart from the base.
+# The ArgoCD CRDs (Application, AppProject, etc.) live in the chart's crds/ directory.
+# They must be registered before the Application/AppProject resources in pass 2.
+kustomize build --enable-helm --load-restrictor LoadRestrictionsNone \
+  k8s/infrastructure/base/argocd/install \
+  | kubectl apply -f -
+success "ArgoCD chart applied"
 
-# upgrade --install is idempotent: installs if not present, upgrades if already installed
-header "Installing / upgrading ArgoCD (chart version ${ARGOCD_CHART_VERSION})"
-step "namespace=${NAMESPACE} · values=${VALUES_FILE}"
-helm upgrade --install argocd argo/argo-cd \
-  --namespace "${NAMESPACE}" \
-  --create-namespace \
-  --version "${ARGOCD_CHART_VERSION}" \
-  --values "${VALUES_FILE}" \
-  --wait \
-  --timeout 5m
-success "ArgoCD installed/upgraded"
+header "Waiting for ArgoCD CRDs to be established"
+for crd in applications.argoproj.io appprojects.argoproj.io applicationsets.argoproj.io; do
+  step "Waiting for CRD: ${crd}"
+  kubectl wait --for=condition=Established "crd/${crd}" --timeout=60s
+done
+success "ArgoCD CRDs established"
+
+header "Waiting for ArgoCD to be ready"
+kubectl rollout status deployment/argocd-server -n "${NAMESPACE}" --timeout=5m
+success "ArgoCD server is ready"
+
+header "Installing ArgoCD (ENV=${ENV}) — pass 2: full overlay"
+step "Rendering overlay: ${OVERLAY}"
+# Pass 2: apply the full overlay — CRDs now registered, so Application and
+# AppProject resources are accepted by the API server.
+kustomize build --enable-helm --load-restrictor LoadRestrictionsNone "${OVERLAY}" \
+  | kubectl apply -f -
+success "ArgoCD overlay applied (Applications + AppProject)"
 
 header "Retrieving initial admin password"
 wait_for_secret "${NAMESPACE}" "argocd-initial-admin-secret"
@@ -138,16 +169,15 @@ echo ""
 info "  ${BOLD}Username:${RESET} admin"
 info "  ${BOLD}Password:${RESET} ${ARGOCD_PASSWORD}"
 
-header "Applying ArgoCD AppProject (defines permission scope)"
-kubectl apply -f k8s/argocd/projects/
-success "AppProject applied"
-
-header "Bootstrapping App of Apps"
-kubectl apply -f k8s/argocd/bootstrap-app.yaml
+header "Bootstrapping App of Apps (${ENV})"
+# One-time trigger: registers the root ArgoCD Application into the cluster.
+# After this, ArgoCD watches k8s/infrastructure/overlays/${ENV}/argocd and
+# manages all other Application CRs automatically via GitOps.
+kubectl apply -f "${BOOTSTRAP_APP}"
 success "Bootstrap Application applied"
 
 echo ""
-echo -e "${GREEN}${BOLD}=== ArgoCD installed and bootstrapped ===${RESET}"
+echo -e "${GREEN}${BOLD}=== ArgoCD installed and bootstrapped (${ENV}) ===${RESET}"
 echo ""
 info "  Access:   ${BOLD}http://argocd.local${RESET}"
 info "  Username: ${BOLD}admin${RESET}"

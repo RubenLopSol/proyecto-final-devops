@@ -11,22 +11,25 @@ El sistema de backup está compuesto por dos componentes:
 | Componente | Tecnología | Namespace | Rol |
 |---|---|---|---|
 | **MinIO** | Deployment + PVC | `backup` | Object storage S3-compatible (almacenamiento de backups) |
-| **Velero** | DaemonSet + CRDs | `velero` | Orquestación de backups de Kubernetes |
+| **Velero** | Deployment + CRDs | `velero` | Orquestación de backups de Kubernetes (BackupStorageLocation, Schedule) |
 
 ---
 
 ## Schedules de Backup
 
-Se configuran dos schedules automáticos en `k8s/base/backup/velero/schedule.yaml`:
+Los schedules siguen la misma estructura base/overlay que el resto de la infraestructura:
 
-### Backup Completo Diario
+- **Base** (`k8s/infrastructure/base/backup/velero/schedule.yaml`): backup diario completo — aplicado en todos los entornos.
+- **Prod overlay** (`k8s/infrastructure/overlays/prod/resources/velero-schedule-hourly.yaml`): backup horario de bases de datos — solo en producción.
+
+### Backup Completo Diario (todos los entornos)
 
 ```yaml
 apiVersion: velero.io/v1
 kind: Schedule
 metadata:
   name: daily-full-backup
-  namespace: velero
+  namespace: backup
 spec:
   schedule: "0 2 * * *"   # Todos los días a las 2:00 AM
   template:
@@ -37,14 +40,14 @@ spec:
     storageLocation: default
 ```
 
-### Backup de Bases de Datos Horario
+### Backup de Bases de Datos Horario (solo producción)
 
 ```yaml
 apiVersion: velero.io/v1
 kind: Schedule
 metadata:
   name: hourly-database-backup
-  namespace: velero
+  namespace: backup
 spec:
   schedule: "0 * * * *"   # Cada hora
   template:
@@ -242,14 +245,13 @@ velero backup get --namespace velero | head -5
 
 ## Notas de Implementación
 
-> **IMPORTANTE:** El namespace de Velero es `velero`, no `backup`. El namespace `backup` contiene solo MinIO.
-> Todos los comandos `velero` deben usar `--namespace velero`.
+> **IMPORTANTE:** Velero tiene su **propio namespace `velero`**, separado del namespace `backup` donde vive MinIO. Todos los comandos `velero` deben usar `--namespace velero`.
 
 ```bash
 # CORRECTO
 velero backup get --namespace velero
 velero schedule get --namespace velero
 
-# INCORRECTO (no funcionará)
+# INCORRECTO (no funcionará — backup es el namespace de MinIO, no de Velero)
 velero backup get --namespace backup
 ```

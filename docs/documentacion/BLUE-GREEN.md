@@ -24,7 +24,7 @@ Se aplica únicamente al servicio **API** porque es el componente más crítico:
 ### Dos Deployments simultáneos
 
 ```
-k8s/base/openpanel/
+k8s/apps/base/openpanel/
 ├── api-deployment-blue.yaml    ← versión Blue (activa)
 ├── api-deployment-green.yaml   ← versión Green (standby)
 └── api-service.yaml            ← Service (selector apunta a Blue o Green)
@@ -123,16 +123,18 @@ Al finalizar, imprime el comando de rollback instantáneo por si fuera necesario
 - Blue está activo con la versión `v1.0` y recibe todo el tráfico
 - Green tiene `replicas: 0` (no consume recursos)
 
-### Paso 1 — El CD actualiza la imagen en Green
+### Paso 1 — El CD actualiza la imagen en Blue
 
-El pipeline CD actualiza el tag en `api-deployment-green.yaml`:
+El pipeline CD actualiza el tag en `api-deployment-blue.yaml` (el slot activo por defecto):
 
 ```bash
-# CD pipeline actualiza el tag en Green
+# CD pipeline actualiza el tag en Blue (slot activo)
 image: ghcr.io/rubenlopsol/openpanel-api:main-abc1234
 ```
 
-ArgoCD despliega la nueva versión en Green.
+ArgoCD despliega la nueva versión en Blue mediante rolling update. Blue recibe el nuevo código mientras sigue en producción.
+
+Para usar el modelo Blue-Green completo (desplegar primero en Green, verificar, luego conmutar), editar manualmente el tag en `api-deployment-green.yaml` antes de ejecutar el script de conmutación.
 
 ### Paso 2 — Escalar Green y verificar
 
@@ -212,7 +214,7 @@ En el modelo GitOps, el cambio del selector del Service debe también reflejarse
 ```bash
 # Editar api-service.yaml en el repositorio
 # Cambiar: version: blue → version: green
-git add k8s/base/openpanel/api-service.yaml
+git add k8s/apps/base/openpanel/api-service.yaml
 git commit -m "feat: switch API traffic to green (v1.2.0)"
 git push
 # ArgoCD aplica el cambio automáticamente

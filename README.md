@@ -1,4 +1,4 @@
-# OpenPanel DevOps Project
+# OpenPanel DevOps Project <!-- CI validated -->
 
 Pipeline DevOps completo para [OpenPanel](https://github.com/Openpanel-dev/openpanel) desplegado sobre Kubernetes con GitOps, observabilidad completa, Blue-Green deployment y backup automatizado.
 
@@ -51,31 +51,35 @@ make help
 ```
 proyecto_final/
 ├── .github/workflows/
-│   ├── ci-validate.yml          # CI-Lint-Test-Validate: gate de calidad en cada PR y push
+│   ├── ci-validate.yml          # CI-Lint-Test-Validate: valida manifiestos K8s, Dockerfiles y secretos en cada PR/push
 │   ├── ci-build-publish.yml     # CI-Build-Publish: construye imágenes, genera SBOM, escanea con Trivy
 │   └── cd-update-tags.yml       # CD-Update-GitOps-Manifests: actualiza image tags y crea release tag
+│
+├── .kube-linter.yaml            # Configuración de kube-linter (checks activos y excluidos)
+├── .hadolint.yaml               # Configuración de hadolint (nivel mínimo de severidad)
 │
 ├── openpanel/                   # Código fuente de OpenPanel (fork)
 │
 ├── k8s/
-│   ├── base/
-│   │   ├── namespaces/          # Definición de namespaces
-│   │   ├── openpanel/           # API (blue/green), Dashboard, Worker, PostgreSQL, ClickHouse, Redis
-│   │   └── backup/              # MinIO, Velero schedules
-│   ├── helm/
-│   │   └── values/              # Values files para Helm charts
-│   │       ├── kube-prometheus-stack.yaml  # Prometheus + Grafana + AlertManager + alertas
-│   │       ├── argocd.yaml                 # ArgoCD Helm values
-│   │       ├── loki.yaml                   # Agregación de logs
-│   │       ├── promtail.yaml               # Recolección de logs
-│   │       └── tempo.yaml                  # Distributed tracing
-│   ├── overlays/
-│   │   └── local/               # Overlay para Minikube (resource limits)
-│   └── argocd/
-│       ├── bootstrap-app.yaml   # App of Apps — raíz del patrón GitOps
-│       ├── applications/        # ArgoCD Application manifests (Kustomize + Helm)
-│       ├── projects/            # ArgoCD AppProject (permisos y scope)
-│       └── sealed-secrets/      # Secrets cifrados (Sealed Secrets)
+│   ├── apps/                    # Capa de aplicación (workloads)
+│   │   ├── base/
+│   │   │   └── openpanel/       # API (blue/green), Dashboard, Worker, PostgreSQL, ClickHouse, Redis
+│   │   └── overlays/
+│   │       ├── staging/         # Overlay Minikube — réplicas reducidas, menos recursos
+│   │       └── prod/            # Overlay producción — réplicas altas, TLS, PDB
+│   └── infrastructure/          # Capa de plataforma (cluster tooling)
+│       ├── base/
+│       │   ├── namespaces/      # Definición de namespaces
+│       │   ├── observability/   # Helm values base: Prometheus, Grafana, Loki, Tempo
+│       │   ├── backup/          # MinIO, Velero daily schedule
+│       │   └── sealed-secrets/  # Secrets cifrados (Sealed Secrets)
+│       ├── overlays/
+│       │   ├── staging/         # Minikube: PVC 5Gi, retención 3d
+│       │   └── prod/            # Producción: PVC 50Gi, retención 30d, hourly backup
+│       └── argocd/
+│           ├── bootstrap-app.yaml  # App of Apps — raíz del patrón GitOps
+│           ├── applications/       # ArgoCD Application manifests (Kustomize + Helm)
+│           └── projects/           # ArgoCD AppProject (permisos y scope)
 │
 ├── scripts/
 │   ├── setup-minikube.sh        # Arranca el clúster, crea namespaces y configura /etc/hosts
@@ -94,8 +98,6 @@ proyecto_final/
 │       ├── variables.tf
 │       └── outputs.tf
 │
-├── audit.md                     # Auditoría de los workflows de GitHub Actions
-├── local-testing.md             # Guía de testing local (act, checks manuales, arranque desde cero)
 ├── credentials-velero.example   # Plantilla de credenciales MinIO para Velero
 ├── Makefile                     # Automatización completa del despliegue
 │
@@ -154,7 +156,7 @@ Instala el controller de Sealed Secrets y aplica los secrets cifrados del reposi
 
 El script instala ArgoCD via Helm (`helm upgrade --install`), espera al secret del admin, aplica el AppProject y aplica el bootstrap Application (App of Apps). Al terminar imprime la URL de acceso y las credenciales iniciales.
 
-ArgoCD sincronizará automáticamente todo lo que hay en `k8s/argocd/applications/` — la aplicación, observabilidad y backup.
+ArgoCD sincronizará automáticamente todo lo que hay en `k8s/infrastructure/argocd/applications/` — la aplicación, observabilidad y backup.
 
 ```bash
 # Verificar que las apps están sincronizando
@@ -179,20 +181,21 @@ velero install \
   --backup-location-config \
     region=minio,s3ForcePathStyle=true,s3Url=http://minio.backup.svc.cluster.local:9000
 
-kubectl apply -f k8s/base/backup/velero/schedule.yaml
+kubectl apply -f k8s/infrastructure/backup/velero/schedule.yaml
 ```
 
 ---
 
 ### Acceso a los servicios
 
-| Servicio | URL |
-|---|---|
-| Dashboard | http://openpanel.local |
-| API | http://api.openpanel.local |
-| ArgoCD | http://argocd.local |
-| Grafana | http://grafana.local |
-| Prometheus | http://prometheus.local |
+| Servicio | URL | Credenciales |
+|---|---|---|
+| Dashboard | http://openpanel.local | (asistente de primer arranque) |
+| API | http://api.openpanel.local | — |
+| ArgoCD | http://argocd.local | admin / ver secret `argocd-initial-admin-secret` |
+| Grafana | http://grafana.local | admin / admin |
+| Prometheus | http://prometheus.local | — |
+| AlertManager | http://alertmanager.local | — |
 
 ```bash
 # Abrir todas las UIs de una vez
@@ -242,7 +245,7 @@ El pipeline está dividido en tres workflows encadenados:
 push / PR
     │
     ▼
-ci-validate.yml          ← lint, tests, validación de manifiestos K8s, escaneo de secrets
+ci-validate.yml          ← validación de manifiestos K8s, linting de Dockerfiles, escaneo de secrets
     │ (solo en master)
     ▼
 ci-build-publish.yml     ← build de imágenes Docker, generación de SBOM, escaneo con Trivy
@@ -255,6 +258,12 @@ ArgoCD detecta el commit y despliega automáticamente
 ```
 
 - Las PRs solo ejecutan `ci-validate.yml` — nunca publican imágenes.
+- `ci-validate.yml` ejecuta tres comprobaciones de infraestructura:
+  - **kubeconform** — valida los manifiestos K8s (strict mode, schema K8s 1.28, verbose por recurso)
+  - **kube-linter** — buenas prácticas de seguridad en los manifiestos (configurado en `.kube-linter.yaml`)
+  - **hadolint** — linting de Dockerfiles (solo falla en errores, warnings de código upstream ignorados)
+  - **Gitleaks** — detección de secrets accidentalmente commiteados
+- El lint y tests de la aplicación están **desactivados intencionalmente** — este proyecto DevOps no es propietario del código fuente de OpenPanel. Ver comentario en `ci-validate.yml`.
 - El SBOM (Software Bill of Materials) se genera en formato SPDX-JSON para cada imagen publicada.
 - Trivy falla el pipeline si encuentra vulnerabilidades `CRITICAL` o `HIGH` con parche disponible.
 - El CD hace `targetRevision` apuntar al tag `release/main-<sha>` — el despliegue es inmutable y reversible.
@@ -272,6 +281,16 @@ find k8s/ -name "*.yaml" -exec sed -i \
 ```
 
 Archivos afectados: ArgoCD Applications (repoURL), AppProject (sourceRepos) y Deployments (imagen GHCR).
+
+También hay que crear la variable `REGISTRY_OWNER` en el repositorio de GitHub (el pipeline CI/CD la necesita para construir y publicar imágenes en GHCR):
+
+```bash
+gh variable set REGISTRY_OWNER \
+  --repo <TU_USUARIO>/<REPO> \
+  --body "<tu_usuario_en_minusculas>"
+```
+
+> `make setup-github` hace esto automáticamente al crear el repositorio.
 
 ---
 
@@ -294,14 +313,14 @@ kubectl create secret generic postgres-credentials \
   --namespace openpanel \
   --dry-run=client -o yaml | \
 kubeseal --controller-namespace sealed-secrets --format yaml \
-  > k8s/argocd/sealed-secrets/postgres-credentials.yaml
+  > k8s/infrastructure/base/sealed-secrets/secrets.yaml
 ```
 
 ---
 
 ### 3. ConfigMap de la aplicación
 
-Actualizar las URLs en `k8s/base/openpanel/configmap.yaml` si usas un dominio diferente a `openpanel.local`:
+Actualizar las URLs en `k8s/apps/base/openpanel/configmap.yaml` si usas un dominio diferente a `openpanel.local`:
 
 ```yaml
 data:
@@ -333,6 +352,8 @@ aws_secret_access_key=TU_MINIO_SECRET_KEY
 ---
 
 ## Documentación
+
+**Guía de testing local** (issues conocidos, verificación de conexiones, troubleshooting): [`local-testing.md`](local-testing.md)
 
 La documentación técnica completa está en [`docs/documentacion/`](docs/documentacion/) en español e inglés:
 

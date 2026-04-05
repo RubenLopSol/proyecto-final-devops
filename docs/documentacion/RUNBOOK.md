@@ -30,7 +30,7 @@ Developer push a main
     ↓
 CI ejecuta lint + build + push imagen
     ↓
-CD actualiza image tag en k8s/base/openpanel/
+CD actualiza image tag en k8s/apps/base/openpanel/
     ↓
 ArgoCD detecta el cambio y despliega
     ↓
@@ -98,7 +98,7 @@ kubectl get svc openpanel-api -n openpanel \
 
 ```bash
 # Revertir el último commit del CD (que actualizó el image tag)
-git log --oneline k8s/base/openpanel/ | head -5
+git log --oneline k8s/apps/base/openpanel/ | head -5
 git revert <commit-sha>
 git push
 # ArgoCD desplegará la versión anterior automáticamente
@@ -123,7 +123,7 @@ kubectl describe pod -n openpanel <pod-name> | tail -20
 
 | Causa | Síntoma en logs | Solución |
 |---|---|---|
-| Secret no encontrado | `secret "X" not found` | Aplicar Sealed Secret: `kubectl apply -f k8s/argocd/sealed-secrets/` |
+| Secret no encontrado | `secret "X" not found` | Reseal: `make sealed-secrets ENV=staging` o `argocd app sync sealed-secrets` |
 | Variable de entorno faltante | `Error: missing env DATABASE_URL` | Verificar ConfigMap y Secrets |
 | No puede conectar a la DB | `ECONNREFUSED :5432` | Verificar que PostgreSQL está Running y NetworkPolicy permite la conexión |
 | OOMKilled | `OOMKilled` en reason | Aumentar memory limit en el patch de resource-limits |
@@ -156,38 +156,53 @@ kubectl logs -n observability -l app.kubernetes.io/name=prometheus --tail=20
 
 ## 5. Alerta: Servicio Caído
 
-**Alertas:** `APIDown`, `RedisDown`, `PostgreSQLDown`
+**Alerta:** `ServiceDown` — `up{job="openpanel-api",namespace="openpanel"} == 0` durante 2 minutos.
+
+Los ServiceMonitors de Prometheus Operator controlan el scraping de todos los componentes de openpanel. Si un target cae:
 
 ```bash
-# 1. Verificar el estado del pod
+# 1. Verificar targets en Prometheus
+# http://prometheus.local/targets  (o con port-forward)
+kubectl port-forward svc/kube-prometheus-stack-prometheus -n observability 9090:9090
+# Abrir http://localhost:9090/targets y buscar el target caído
+
+# 2. Verificar el estado del pod
 kubectl get pods -n openpanel -l app=<servicio>
 
-# 2. Si el pod no existe o está en error:
+# 3. Si el pod no existe o está en error:
 kubectl describe pod -n openpanel -l app=<servicio>
 kubectl logs -n openpanel -l app=<servicio> --previous
 
-# 3. Forzar recreación del pod
+# 4. Forzar recreación del pod
 kubectl delete pod -n openpanel -l app=<servicio>
 
-# 4. Si es un StatefulSet (postgres, clickhouse):
+# 5. Si es un StatefulSet (postgres, clickhouse):
 kubectl rollout restart statefulset/<nombre> -n openpanel
 
-# 5. Verificar en Prometheus que el target vuelve a UP
-# http://localhost:9090/targets (tras port-forward)
+# 6. Verificar ServiceMonitor activo
+kubectl get servicemonitor -n openpanel
+kubectl describe servicemonitor openpanel-api -n openpanel
 ```
 
 ---
 
 ## 6. Alerta: Alta Tasa de Errores HTTP
 
-**Alerta:** `HighErrorRate` — más del 10% de peticiones retornan 5xx.
+**Alerta:** `HighErrorRate` — más del 10% de peticiones retornan 5xx durante 5 minutos.
+
+La métrica proviene del ServiceMonitor de la API: `http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}`.
 
 ```bash
 # 1. Ver logs de la API en tiempo real
 kubectl logs -n openpanel -l app=openpanel-api -f --tail=100
 
-# 2. Consulta en Prometheus para ver el detalle
-# rate(http_requests_total{status=~"5.."}[5m])
+# 2. Consulta en Prometheus para ver el detalle por ruta
+rate(http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}[5m])
+
+# Ver la tasa de error como porcentaje
+sum(rate(http_request_duration_seconds_count{status_code=~"5..",job="openpanel-api"}[5m]))
+/
+sum(rate(http_request_duration_seconds_count{job="openpanel-api"}[5m]))
 
 # 3. Ver si hay errores de conexión a bases de datos
 kubectl logs -n openpanel -l app=openpanel-api | grep -i "error\|ECONNREFUSED\|timeout"
@@ -199,6 +214,52 @@ kubectl get pods -n openpanel -l app=clickhouse
 
 # 5. Si el problema persiste, considerar rollback
 argocd app rollback openpanel <revision-anterior>
+```
+
+---
+
+## 6b. Alerta: Alta Latencia de API
+
+**Alerta:** `APIHighLatency` — P99 de latencia supera 2 segundos durante 5 minutos.
+
+```bash
+# 1. Consulta PromQL para ver la latencia actual
+histogram_quantile(0.99,
+  sum(rate(http_request_duration_seconds_bucket{job="openpanel-api"}[5m])) by (le, route)
+)
+
+# 2. Ver las rutas más lentas en el dashboard de Grafana
+# Dashboard: OpenPanel API → TOP 10 Slowest Routes
+
+# 3. Verificar carga en las bases de datos
+kubectl top pods -n openpanel
+kubectl exec -it -n openpanel <postgres-pod> -- psql -U postgres -d openpanel \
+  -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 5;"
+
+# 4. Si hay degradación sostenida, considerar rollback o escalar
+kubectl scale deployment openpanel-api-blue -n openpanel --replicas=2
+```
+
+---
+
+## 6c. Alerta: Event Loop Lag de Node.js
+
+**Alerta:** `NodeJSEventLoopLag` — P99 del event loop lag supera 500ms durante 5 minutos.
+
+Indica que el proceso Node.js está bloqueado o sobrecargado.
+
+```bash
+# 1. Ver el event loop lag actual
+histogram_quantile(0.99, sum(rate(nodejs_eventloop_lag_seconds_bucket{job="openpanel-api"}[5m])) by (le))
+
+# 2. Ver uso de CPU del pod
+kubectl top pods -n openpanel -l app=openpanel-api
+
+# 3. Ver si hay tareas de worker acumuladas
+kubectl exec -it -n openpanel <redis-pod> -c redis -- redis-cli LLEN bull:default:wait
+
+# 4. Reiniciar el pod si el lag es severo
+kubectl delete pod -n openpanel -l app=openpanel-api,version=blue
 ```
 
 ---
@@ -217,7 +278,7 @@ kubectl describe pod -n openpanel <pod-name> | grep -A4 "Limits:"
 
 # 3. Si el pod está siendo OOMKilled frecuentemente,
 #    aumentar el límite de memoria en el patch:
-# k8s/overlays/local/patches/resource-limits.yaml
+# k8s/apps/overlays/staging/patches/api-blue.yaml (o start.yaml / worker.yaml según el pod)
 
 # 4. Reiniciar el pod para liberar memoria inmediatamente
 kubectl delete pod -n openpanel <pod-name>
@@ -281,20 +342,17 @@ kubectl exec -it -n openpanel \
 Cuando es necesario cambiar una contraseña o token:
 
 ```bash
-# 1. Crear el nuevo Sealed Secret con el nuevo valor
-kubectl create secret generic postgres-credentials \
-  --from-literal=postgres-password=NuevaContraseña123 \
-  --namespace openpanel \
-  --dry-run=client -o yaml | \
-kubeseal --controller-namespace sealed-secrets \
-  --format yaml > k8s/argocd/sealed-secrets/postgres-credentials.yaml
+# 1. Regenerar secrets.yaml con la nueva credencial (el resto usa los valores del .secrets)
+make reseal-secrets ENV=staging POSTGRES_PASSWORD=NuevaContraseña123
 
-# 2. Commitear y pushear
-git add k8s/argocd/sealed-secrets/postgres-credentials.yaml
+# 2. Commitear y pushear el archivo cifrado (es seguro)
+git add k8s/infrastructure/overlays/staging/sealed-secrets/secrets.yaml
 git commit -m "chore: rotate postgres credentials"
 git push
 
-# 3. ArgoCD aplicará el cambio automáticamente
+# 3. ArgoCD (app sealed-secrets) aplica el cambio automáticamente.
+# El controller crea el nuevo Secret con la contraseña actualizada.
+
 # 4. Reiniciar los pods que usan el secret para que tomen el nuevo valor
 kubectl rollout restart deployment/openpanel-api-blue -n openpanel
 kubectl rollout restart deployment/openpanel-worker -n openpanel
@@ -313,28 +371,24 @@ Procedimiento completo cuando el clúster se ha eliminado o es un entorno nuevo:
 # 1. Crear clúster Minikube (usa el script)
 ./scripts/setup-minikube.sh
 
-# 2. Instalar Sealed Secrets PRIMERO
-helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets && helm repo update
-helm install sealed-secrets sealed-secrets/sealed-secrets -n sealed-secrets --create-namespace
+# 2. Instalar Sealed Secrets PRIMERO (controller + reseal + aplicar secrets)
+make sealed-secrets ENV=staging
+# Si tienes backup de la clave RSA del clúster anterior, restáurala primero:
+# make restore-sealing-key
 
-# 3. Aplicar todos los Sealed Secrets
-kubectl apply -f k8s/argocd/sealed-secrets/
-
-# 4. Instalar ArgoCD (usa el script — incluye Ingress y modo HTTP)
+# 3. Instalar ArgoCD (usa el script — incluye Ingress y modo HTTP)
 ./scripts/install-argocd.sh
+# El script aplica el AppProject y el bootstrap automáticamente.
+# ArgoCD sincronizará openpanel, observability, minio, velero, sealed-secrets, namespaces.
 
-# 5. Aplicar proyecto y aplicaciones ArgoCD
-kubectl apply -f k8s/argocd/projects/
-kubectl apply -f k8s/argocd/applications/
-
-# 6. Esperar a que ArgoCD sincronice todo
+# 4. Esperar a que ArgoCD sincronice todo
 kubectl get applications -n argocd -w
 
-# 7. Instalar Velero
+# 5. Instalar el servidor Velero (manual — gestiona los backups)
 cat > velero-credentials <<EOF
 [default]
-aws_access_key_id=minioadmin
-aws_secret_access_key=minio-secret-2024
+aws_access_key_id=$(grep MINIO_USER .secrets | cut -d= -f2)
+aws_secret_access_key=$(grep MINIO_PASSWORD .secrets | cut -d= -f2)
 EOF
 
 velero install \
@@ -343,14 +397,16 @@ velero install \
   --bucket velero-backups \
   --secret-file ./velero-credentials \
   --use-volume-snapshots=false \
+  --namespace velero \
   --backup-location-config region=minio,s3ForcePathStyle=true,s3Url=http://minio.backup.svc.cluster.local:9000
-kubectl apply -f k8s/base/backup/velero/schedule.yaml
 
-# 8. Configurar DNS local
-echo "$(minikube ip -p openpanel) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local" \
+rm velero-credentials  # no dejar en disco
+
+# 6. Configurar DNS local
+echo "$(minikube ip -p devops-cluster) openpanel.local api.openpanel.local argocd.local grafana.local prometheus.local" \
   | sudo tee -a /etc/hosts
 
-# 9. Verificar estado final
+# 7. Verificar estado final
 kubectl get pods -A
 kubectl get applications -n argocd
 velero schedule get --namespace velero
